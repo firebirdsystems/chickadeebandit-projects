@@ -57,7 +57,12 @@ CREATE TABLE IF NOT EXISTS app_projects__checklist_items (
   sort_order   INTEGER NOT NULL DEFAULT 0,
   created_by   TEXT NOT NULL,
   created_at   TEXT NOT NULL,
-  updated_at   TEXT NOT NULL
+  updated_at   TEXT NOT NULL,
+  -- Redundant against the PRIMARY KEY on its own, and here on purpose: it is
+  -- the parent key the completions table's composite FK references, which is
+  -- what makes "this completion's item really belongs to this project"
+  -- enforceable by the database rather than by the client that wrote the row.
+  UNIQUE (project_id, id)
 );
 
 -- Ticking an item off is an act by whoever did it, not an edit of the item, so
@@ -70,15 +75,28 @@ CREATE TABLE IF NOT EXISTS app_projects__checklist_items (
 -- they can take it back.
 --
 -- UNIQUE on item_id: an item is done or it is not. The row records WHO closed it.
+--
+-- The two FK columns are correlated by a COMPOSITE foreign key, not by two
+-- independent ones. `inherit_visibility` authorizes this row by looking up
+-- `project_id` alone — it has no notion that `item_id` should belong to that
+-- same project — so two independent FKs would both pass for a row naming a
+-- project the writer can see and an item from one they cannot. That row is not
+-- merely junk: UNIQUE(item_id) makes it the authoritative completion for the
+-- victim's item, the agenda's `LEFT JOIN ... ON x.item_id = c.id` reads it as
+-- done, and the item's real owner can never tick it (UNIQUE) nor delete the
+-- squatting row (writer-scoped). The composite FK makes the pair itself the
+-- thing the database checks, so the mismatch is rejected at write time.
 CREATE TABLE IF NOT EXISTS app_projects__checklist_completions (
   id         TEXT PRIMARY KEY,
   -- The FK the row policy inherits from. It must point at `projects` (an
   -- `inherit_visibility` parent has to be an owner-bearing policy), so the
   -- project is denormalized here alongside the item it belongs to.
   project_id TEXT NOT NULL REFERENCES app_projects__projects(id) ON DELETE CASCADE,
-  item_id    TEXT NOT NULL UNIQUE REFERENCES app_projects__checklist_items(id) ON DELETE CASCADE,
+  item_id    TEXT NOT NULL UNIQUE,
   done_by    TEXT NOT NULL,
-  done_at    TEXT NOT NULL
+  done_at    TEXT NOT NULL,
+  FOREIGN KEY (project_id, item_id)
+    REFERENCES app_projects__checklist_items(project_id, id) ON DELETE CASCADE
 );
 
 -- The decisions log — "we picked the matte tile, model 4471" — which is the

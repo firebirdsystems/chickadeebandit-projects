@@ -109,16 +109,36 @@ export function budgetStatus(project, items) {
 }
 
 /**
- * True when adding `addedCents` to the project's committed total crosses its cap
- * for the first time. The caller publishes `project.budget_exceeded` on a true —
- * so this has to be false when the budget was already blown, or every later edit
- * would re-announce the same overrun.
+ * True when a write takes the project from within its cap to over it. The caller
+ * publishes `project.budget_exceeded` on a true, so this has to be false when
+ * the budget was ALREADY blown or every later edit would re-announce the same
+ * overrun.
+ *
+ * Both sides are measured over the whole item list, which is what makes the
+ * "already over" test honest. Judging `before` from the items minus the one
+ * being edited — the obvious way to write this, since that is the set you need
+ * for `after` — hides the very item that blew the budget: editing a $5,000 line
+ * under a $10,000 cap alongside a $6,000 line would see "$6,000, not over", then
+ * "$11,000, over", and re-fire the event on every save of the item that caused
+ * the overrun in the first place.
+ *
+ * `itemsAfter` is the full list as it will stand once the write lands.
  */
-export function crossesBudget(project, itemsBefore, addedCents) {
+export function crossesBudget(project, itemsBefore, itemsAfter) {
   const before = budgetStatus(project, itemsBefore);
-  if (!before) return false;
-  if (before.over) return false;
-  return before.committedCents + Number(addedCents ?? 0) > before.capCents;
+  const after = budgetStatus(project, itemsAfter);
+  if (!before || !after) return false;
+  return !before.over && after.over;
+}
+
+/**
+ * The line items as they will stand after a save: `item` replaces the row with
+ * the same id, or is appended when it is new. Keeps the two budget snapshots
+ * `crossesBudget` compares in one place rather than at each call site.
+ */
+export function itemsAfterSave(items, item) {
+  const has = items.some(i => i.id === item.id);
+  return has ? items.map(i => (i.id === item.id ? item : i)) : [...items, item];
 }
 
 // ── Checklist ────────────────────────────────────────────────────────────────
@@ -213,6 +233,40 @@ export function canEditProject(project, me) {
 /** `delete_adult_only: true` — a child may edit a shared project but not destroy it. */
 export function canDeleteProject(project, me) {
   return canEditProject(project, me) && isAdult(me);
+}
+
+/**
+ * The visibility values this member may choose for this project.
+ *
+ * `private` is deliberately not offered to a child, because the policy pair
+ * `write_visibility_scoped` + `delete_adult_only` makes a child-owned private
+ * project undeletable by ANYONE: the child is refused DELETE outright for not
+ * being an adult, and an adult passes that gate only to have the visibility
+ * condition appended — which a `private` row they do not own never satisfies.
+ * The row would sit in the household's database with no member able to remove
+ * it, holding its photos against the storage quota.
+ *
+ * A project that is ALREADY private keeps the option listed, so its owner can
+ * see the state they are in and switch out of it — re-sharing is the one way
+ * such a row becomes deletable (by an adult), and hiding the current value
+ * would leave them unable to name it.
+ */
+export function visibilityChoicesFor(me, project) {
+  const all = ["everyone", "adults", "private"];
+  if (isAdult(me)) return all;
+  return project?.visibility === "private" ? all : ["everyone", "adults"];
+}
+
+/**
+ * True when this row is in the state described above: private, owned by the
+ * viewer, and undeletable by them because they are not an adult. The UI says so
+ * rather than leaving a project with no Delete button and no explanation.
+ */
+export function isUndeletableWhilePrivate(project, me) {
+  return !!me
+    && project?.visibility === "private"
+    && project?.created_by === me.id
+    && !isAdult(me);
 }
 
 /**

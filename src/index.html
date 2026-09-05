@@ -167,15 +167,18 @@
 </div>
 
 <script type="module">
-import { esc, hubConfirm, hubAlert, hubToday, searchMatch, createFilesHelper } from "/hub-sdk.js";
+import {
+  esc, hubConfirm, hubAlert, hubToday, searchMatch, formatRelativeDate,
+  createFilesHelper, createDbHelper, createEventsHelper, logHubActivity,
+} from "/hub-sdk.js";
 import {
   STATUSES, STATUS_LABELS, VISIBILITY_LABELS,
   toCents, fmtDollars, centsInput,
-  budgetTotals, budgetStatus, crossesBudget,
+  budgetTotals, budgetStatus, crossesBudget, itemsAfterSave,
   checklistProgress, sortChecklist, isOverdue,
-  completionIndex, completionOf, isDone,
+  completionIndex, completionOf,
   canSeeProject, canEditProject, canDeleteProject, canAddChild, canEditChild,
-  canCompleteItem, canUncompleteItem,
+  canCompleteItem, canUncompleteItem, visibilityChoicesFor, isUndeletableWhilePrivate,
   searchableFields,
 } from "./logic.js";
 
@@ -184,8 +187,14 @@ const CONTEXT = window.__CONTEXT_URL ?? "";
 const DB      = window.__DB_URL ?? "";
 const EVENTS  = window.__EVENTS_URL ?? "";
 const APP_ID  = window.__APP_ID ?? "projects";
-const ME      = window.__CURRENT_MEMBER ?? null;
 const files   = createFilesHelper(window.__FILES_URL ?? "");
+
+/** The hub stamps the viewer onto the document; outside it there is no session.
+ *  Demo mode still needs somebody to BE, though — every gate in logic.js is
+ *  written against a member, so a null viewer owns nothing, is not an adult,
+ *  and filters the seeded project straight back out of the list. Standing in
+ *  as the demo project's owner is what makes the demo show its own data. */
+const ME = window.__CURRENT_MEMBER ?? (DB ? null : { id: "demo-1", name: "Alex", role: "adult" });
 
 // ── First-render reads ───────────────────────────────────────────────────────
 // Declared once here and mirrored byte-for-byte in manifest.preload, so the hub
@@ -220,8 +229,6 @@ let budget = [];
 let checklist = [];
 let notes = [];
 let completions = [];
-/** item_id → completion row. Rebuilt whenever `completions` changes. */
-let doneByItem = new Map();
 let view = "list";              // "list" | "project"
 let currentProjectId = null;
 let currentTab = "budget";      // "budget" | "checklist" | "notes" | "photos"
@@ -232,6 +239,13 @@ let modalEl = null;
 // Projects whose children we already hold. The preload only carries children of
 // OPEN projects, so opening a finished one fetches its rows once.
 const childrenLoaded = new Set();
+
+/** Checklist items with a tick/untick write in flight — see toggleChecklist. */
+const togglesInFlight = new Set();
+
+/** Milestone items whose `project.milestone_reached` has already gone out this
+ *  session, so a mis-tick and its correction don't announce it twice. */
+const announcedMilestones = new Set();
 
 function nowIso() { return new Date().toISOString(); }
 function uuid() { return crypto.randomUUID(); }
@@ -255,12 +269,67 @@ function parseFileIds(value) {
   } catch { return []; }
 }
 
-/** Children of a project, from the arrays we already hold. */
-function budgetOf(projectId)    { return budget.filter(b => b.project_id === projectId); }
-function checklistOf(projectId) { return sortChecklist(checklist.filter(c => c.project_id === projectId)); }
-function notesOf(projectId)     { return notes.filter(n => n.project_id === projectId); }
+/**
+ * Children of a project, grouped once per version of each child array.
+ *
+ * The cache is a WeakMap keyed on the ARRAY ITSELF, which is what makes the
+ * derived views self-invalidating: every mutation below REPLACES its array
+ * (`[...budget, item]`, `.filter(...)`, `.concat(...)`) rather than splicing in
+ * place, so a changed array is a new cache key and a stale group map is
+ * unreachable. An index kept in a `let` and refreshed by hand is the shape that
+ * rots — the next site to touch `completions` forgets the refresh call and the
+ * checklist renders yesterday's done-state against today's rows, with no test
+ * able to catch a missed call.
+ *
+ * It is also what keeps rendering cheap. These used to be full-array `filter`s
+ * run per card per render: with 100 projects over 500 budget and 500 checklist
+ * rows that is ~100,000 predicate evaluations and 100 sorts for one paint, and
+ * the search box repeats the whole thing on every keystroke.
+ *
+ * Callers must treat the returned arrays as read-only — they are shared.
+ */
+const NO_ROWS = Object.freeze([]);
+const groupCache = new WeakMap();
+function groupedByProject(rows) {
+  let map = groupCache.get(rows);
+  if (map) return map;
+  map = new Map();
+  for (const row of rows) {
+    const list = map.get(row.project_id);
+    if (list) list.push(row); else map.set(row.project_id, [row]);
+  }
+  groupCache.set(rows, map);
+  return map;
+}
 
-function reindexCompletions() { doneByItem = completionIndex(completions); }
+const sortedChecklistCache = new WeakMap();
+function budgetOf(projectId) { return groupedByProject(budget).get(projectId) ?? NO_ROWS; }
+function notesOf(projectId)  { return groupedByProject(notes).get(projectId) ?? NO_ROWS; }
+function checklistOf(projectId) {
+  let perProject = sortedChecklistCache.get(checklist);
+  if (!perProject) { perProject = new Map(); sortedChecklistCache.set(checklist, perProject); }
+  let sorted = perProject.get(projectId);
+  if (!sorted) {
+    sorted = sortChecklist(groupedByProject(checklist).get(projectId) ?? NO_ROWS);
+    perProject.set(projectId, sorted);
+  }
+  return sorted;
+}
+
+/** item_id → the completion that closed it, derived from `completions` on the
+ *  same self-invalidating basis as the group maps above. */
+const doneCache = new WeakMap();
+function doneIndex() {
+  let map = doneCache.get(completions);
+  if (!map) { map = completionIndex(completions); doneCache.set(completions, map); }
+  return map;
+}
+
+/** Whether the viewer is the row's owner, which is what the `visibility`
+ *  column's write ACL means by "owner". A project the automation created is
+ *  owned by `"automation"` and so by nobody — the comparison is false for every
+ *  member, which is exactly how the hub will judge it too. */
+function isOwner(project) { return !!ME && project?.created_by === ME.id; }
 
 /** A private project never reaches the cross-app bus or the household feed —
  *  both are read by people who cannot open the project itself. */
@@ -268,17 +337,13 @@ function mayPublish(project)  { return !!project && project.visibility !== "priv
 function mayLogActivity(project) { return !!project && project.visibility === "everyone"; }
 
 // ── DB ───────────────────────────────────────────────────────────────────────
-async function db(sql, params = []) {
-  if (!DB) return { rows: [] };
-  const res = await fetch(DB, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sql, params }),
-  });
-  const json = await res.json();
-  if (!res.ok || json.error) throw new Error(json.error || `Database request failed (${res.status})`);
-  return json;
-}
+// The SDK helper is the transport: the same single/batch request shapes and the
+// same "a refused statement is HTTP 200 with an `error` body" check this app
+// used to spell out, and it is where hub-side changes to the envelope land.
+// `db.batch` resolves to the RESULTS ARRAY (not `{ results }`), and answers
+// demo mode with one `{ rows: [], changed: 0 }` stub per statement.
+const db = createDbHelper(DB);
+const events = createEventsHelper(EVENTS, APP_ID);
 
 /**
  * A write that MUST land. `/api/db` answers a policy-narrowed statement with
@@ -287,47 +352,43 @@ async function db(sql, params = []) {
  * Every write below goes through this rather than `db` directly.
  */
 async function dbWrite(sql, params, refusal) {
+  // Demo mode has no endpoint, so every statement reports nothing changed. That
+  // is not a refusal, and treating it as one turned each demo tick, edit and
+  // delete into an error dialog — the one thing a demo must never do. The local
+  // state update the caller does next is the whole write here.
+  if (!DB) return { rows: [], changed: 1 };
   const res = await db(sql, params);
   if (Number(res.changed ?? 0) === 0) throw new Error(refusal);
   return res;
 }
 
-/** Several statements as one transaction — all apply, or none does. */
-async function dbBatch(statements) {
-  if (!DB || statements.length === 0) return { results: [] };
-  const res = await fetch(DB, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ statements }),
-  });
-  const json = await res.json();
-  if (!res.ok || json.error) throw new Error(json.error || `Database request failed (${res.status})`);
-  return json;
-}
-
 // ── Side effects (best-effort; the row is already written) ────────────────────
-async function publishEvent(type, subjectId, payload = {}) {
-  if (!EVENTS) return;
-  try {
-    await fetch(EVENTS, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source_app_id: APP_ID, type, subject_id: subjectId, payload }),
-    });
-  } catch { /* ignored on purpose */ }
+/** The app's (type, subject, payload) order over the SDK's publish, which takes
+ *  the payload second. The SDK reports a catalog/schema rejection to the console
+ *  instead of swallowing it: a mis-shaped payload used to publish nothing and
+ *  tell nobody. */
+function publishEvent(type, subjectId, payload = {}) {
+  events.publish(type, payload, subjectId);
 }
 
-function logHubActivity(type, description, projectId) {
-  fetch("/api/activity", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      type,
-      actor: ME?.name ?? "Someone",
-      description,
-      metadata: { deepLink: { appId: APP_ID, params: { projectId } } },
-    }),
-  }).catch(() => {});
+/**
+ * One household-feed line about a project, gate included.
+ *
+ * The gate lives in here rather than at each call site because "a private
+ * project never reaches the feed" is an invariant, and an invariant every
+ * future call site has to remember is just a convention.
+ *
+ * `logHubActivity` is the SDK's: it posts the runtime's own `app_activity` type
+ * to `window.__ACTIVITY_URL`, which stamps this app's id on the row. A
+ * hand-rolled POST of a `project_*` type to `/api/activity` — which is what
+ * this app did — is refused 403 by the hub (that route admits a fixed list of
+ * caller types, none of them ours) and swallowed by the `.catch`, so every feed
+ * line was silently dropped; contract-ci fails the release for exactly that
+ * shape.
+ */
+function logProjectActivity(project, description) {
+  if (!mayLogActivity(project)) return;
+  logHubActivity(description, { deepLink: { appId: APP_ID, params: { projectId: project.id } } });
 }
 
 // ── Loading ──────────────────────────────────────────────────────────────────
@@ -368,7 +429,6 @@ function demoData() {
   completions = [
     { id: "demo-x1", project_id: "demo-p1", item_id: "demo-c1", done_by: "demo-1", done_at: nowIso() },
   ];
-  reindexCompletions();
   notes = [
     { id: "demo-n1", project_id: "demo-p1", body: "Went with the matte tile (model 4471), not the gloss — less slippery underfoot.", created_by: "demo-2", created_at: nowIso() },
   ];
@@ -396,16 +456,13 @@ function fullyLoadedFrom(rows, limit) {
 
 async function loadProjects() {
   if (!DB) { demoData(); return; }
-  const { results } = await dbBatch(Object.values(LOCAL_READS).map(sql => ({ sql, params: [] })));
-  const empty = Object.keys(LOCAL_READS).map(() => ({ rows: [] }));
   const [projectsRes, budgetRes, checklistRes, notesRes, completionsRes] =
-    results.length ? results : empty;
+    await db.batch(Object.values(LOCAL_READS).map(sql => ({ sql, params: [] })));
   projects    = projectsRes.rows ?? [];
   budget      = budgetRes.rows ?? [];
   checklist   = checklistRes.rows ?? [];
   notes       = notesRes.rows ?? [];
   completions = completionsRes.rows ?? [];
-  reindexCompletions();
 
   // A project counts as loaded only when EVERY child read covered it.
   const covered = [
@@ -421,33 +478,74 @@ async function loadProjects() {
   }
 }
 
+/**
+ * The rest of the projects, when the preload came back at its own cap.
+ *
+ * The child reads have `fullyLoadedFrom` + `ensureChildren` to repair a
+ * truncated result, but the projects read had neither, and it is the one that
+ * cannot be repaired lazily: a project missing from this list has no card to
+ * click, so nothing would ever ask for it. Because finished projects sort last,
+ * the rows that fell off the cut were the oldest completed ones — a household's
+ * finished renovation and its photos, silently absent from an app whose whole
+ * premise is keeping that record.
+ *
+ * Paged rather than one big read so the common case (under the cap) costs
+ * nothing at all, and the tail arrives after first paint.
+ */
+async function loadRemainingProjects() {
+  if (!DB || projects.length < READ_LIMITS.projects) return;
+  // Inline integers: `LIMIT ?`/`OFFSET ?` are refused at manifest admission, so
+  // the paged form is built as text. Both values are ours, never user input.
+  for (let offset = projects.length; offset < READ_LIMITS.projects * 10; ) {
+    const { rows } = await db(`${LOCAL_READS.projects} OFFSET ${offset}`);
+    if (!rows?.length) return;
+    projects = [...projects, ...rows];
+    if (rows.length < READ_LIMITS.projects) return;
+    offset += rows.length;
+  }
+}
+
 /** The preload only carries children of open projects; fetch a finished one's
  *  rows the first time someone opens it. */
 async function ensureChildren(projectId) {
   if (!DB || childrenLoaded.has(projectId)) return;
-  const { results } = await dbBatch([
+  const [b, c, n, x] = await db.batch([
     { sql: "SELECT * FROM app_projects__budget_items WHERE project_id = ? ORDER BY sort_order, created_at", params: [projectId] },
     { sql: "SELECT * FROM app_projects__checklist_items WHERE project_id = ? ORDER BY sort_order, created_at", params: [projectId] },
     { sql: "SELECT * FROM app_projects__notes WHERE project_id = ? ORDER BY created_at DESC", params: [projectId] },
     { sql: "SELECT * FROM app_projects__checklist_completions WHERE project_id = ?", params: [projectId] },
   ]);
-  const [b, c, n, x] = results.length ? results : [{ rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }];
   budget      = budget.filter(r => r.project_id !== projectId).concat(b.rows ?? []);
   checklist   = checklist.filter(r => r.project_id !== projectId).concat(c.rows ?? []);
   notes       = notes.filter(r => r.project_id !== projectId).concat(n.rows ?? []);
   completions = completions.filter(r => r.project_id !== projectId).concat(x.rows ?? []);
-  reindexCompletions();
   childrenLoaded.add(projectId);
 }
 
 async function refresh() {
   error = "";
   try {
-    await Promise.all([loadMembers(), loadProjects()]);
+    await loadProjects();
   } catch (e) {
     error = e.message;
   }
+  // First paint waits on the projects read alone, which the preload answers
+  // from rows already embedded in the document — no round trip. The roster is
+  // a real fetch, and the list view never names a member (names appear only in
+  // the checklist and decisions tabs and the assignee picker), so waiting on it
+  // here bought nothing and cost every launch a full round trip before anything
+  // appeared. Repaint when the names land, and again when the tail arrives.
   render();
+  // A late repaint re-creates #root, so skip it while a modal is open or the
+  // search box has focus — otherwise the roster landing mid-sentence would take
+  // the caret out of the field the user is typing in.
+  const repaint = () => {
+    if (modalEl) return;
+    if (document.activeElement?.id === "search") return;
+    render();
+  };
+  loadMembers().then(repaint).catch(() => {});
+  loadRemainingProjects().then(repaint).catch(e => { error = e.message; repaint(); });
 }
 
 // ── Navigation ───────────────────────────────────────────────────────────────
@@ -485,7 +583,7 @@ function projectCard(project) {
   const items = budgetOf(project.id);
   const money = budgetStatus(project, items);
   const totals = budgetTotals(items);
-  const progress = checklistProgress(checklistOf(project.id), doneByItem);
+  const progress = checklistProgress(checklistOf(project.id), doneIndex());
   const meta = [];
   if (project.target_date) meta.push(`Aiming for ${fmtDate(project.target_date)}`);
   if (progress) meta.push(`${progress.done}/${progress.total} done`);
@@ -610,7 +708,7 @@ function renderProject(project) {
 function tabLabel(tab, project) {
   if (tab === "budget") return `Budget (${budgetOf(project.id).length})`;
   if (tab === "checklist") {
-    const progress = checklistProgress(checklistOf(project.id), doneByItem);
+    const progress = checklistProgress(checklistOf(project.id), doneIndex());
     return progress ? `Checklist (${progress.done}/${progress.total})` : "Checklist";
   }
   if (tab === "notes") return `Decisions (${notesOf(project.id).length})`;
@@ -664,15 +762,16 @@ function renderChecklistTab(project) {
   const canAdd = canAddChild(project, ME);
 
   const rows = items.map(item => {
-    const completion = completionOf(item, doneByItem);
+    const completion = completionOf(item, doneIndex());
     const done = !!completion;
-    const overdue = isOverdue(item, today, doneByItem);
+    const overdue = isOverdue(item, today, doneIndex());
     // Ticking off needs only visibility of the project; reopening belongs to
     // whoever closed it. A checkbox nobody may press is disabled rather than
     // hidden, so a done item still reads as done.
-    const mayToggle = done
+    const pending = togglesInFlight.has(item.id);
+    const mayToggle = !pending && (done
       ? canUncompleteItem(completion, project, ME)
-      : canCompleteItem(project, ME);
+      : canCompleteItem(project, ME));
     const meta = [];
     if (item.due_date) meta.push(`${done ? "Was due" : "Due"} ${fmtDate(item.due_date)}`);
     if (item.assignee_id) meta.push(memberName(item.assignee_id));
@@ -712,11 +811,15 @@ function renderChecklistTab(project) {
 function renderNotesTab(project) {
   const items = notesOf(project.id);
   const canAdd = canAddChild(project, ME);
+  // Each row's date comes from formatRelativeDate, because created_at is an
+  // INSTANT rather than a calendar date: slicing its first ten characters took
+  // the UTC day, so a decision logged at 9pm in Los Angeles was filed under
+  // tomorrow. An instant is rendered on the reader's own clock.
   const rows = items.map(note => `
     <div class="list-item" data-testid="note-row" data-note-id="${esc(note.id)}">
       <div class="list-body">
         <div>${esc(note.body)}</div>
-        <div class="item-meta tiny">${esc(memberName(note.created_by))} · ${esc(fmtDate(String(note.created_at).slice(0, 10)))}</div>
+        <div class="item-meta tiny">${esc(memberName(note.created_by))} · ${esc(formatRelativeDate(note.created_at))}</div>
       </div>
       ${canEditChild(note, project, ME) ? `
         <button class="btn-quiet-danger" type="button" onclick="removeNote(${jsArg(note.id)})">Delete</button>` : ""}
@@ -792,7 +895,16 @@ function projectForm(project) {
     </div>
     <div class="field-row">
       ${field("f-budget", "Budget (optional)", `<input id="f-budget" type="number" min="0" step="0.01" placeholder="0.00" value="${p.budget_cap_cents ? esc(centsInput(p.budget_cap_cents)) : ""}" />`)}
-      ${field("f-visibility", "Who can see it", `<select id="f-visibility">${Object.entries(VISIBILITY_LABELS).map(([v, l]) => `<option value="${esc(v)}"${(p.visibility ?? "adults") === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`)}
+      ${(!project || isOwner(project))
+        ? field("f-visibility", "Who can see it", `<select id="f-visibility">${visibilityChoicesFor(ME, project).map(v => `<option value="${esc(v)}"${(p.visibility ?? "adults") === v ? " selected" : ""}>${esc(VISIBILITY_LABELS[v])}</option>`).join("")}</select>`
+            + (isUndeletableWhilePrivate(project, ME)
+                ? `<p class="muted tiny" style="margin:6px 0 0">While this is "Only me" it cannot be deleted — an adult has to remove it, and they cannot see it. Share it to have it removed.</p>`
+                : ""))
+        // Only the owner may write this column, so for anyone else it is shown
+        // as read-only rather than as a control whose every use would be
+        // refused. A disabled <select> would do as much, but stating who does
+        // own it is the part that answers the user's next question.
+        : field("f-visibility", "Who can see it", `<input id="f-visibility" type="hidden" value="${esc(p.visibility ?? "adults")}" /><p class="muted tiny" style="margin:0">${esc(VISIBILITY_LABELS[p.visibility] ?? p.visibility)} · only ${esc(memberName(p.created_by))} can change this</p>`)}
     </div>
     <div class="modal-actions">
       ${project && canDeleteProject(project, ME) ? `<button class="btn btn-quiet-danger" type="button" onclick="removeProject()">Delete project</button>` : ""}
@@ -833,13 +945,29 @@ async function saveProject(isEdit) {
       const wasDone = !!project.completed_at;
       const nowDone = fields.status === "done";
       const completedAt = nowDone ? (project.completed_at ?? now) : null;
+      // `visibility` is named in the SET list ONLY by its owner. The column's
+      // write ACL is `writable_by: ["owner"]`, and the hub counts a column as
+      // written when it merely APPEARS in SET — the value being unchanged makes
+      // no difference — then appends `AND created_by = <caller>` to the WHERE.
+      // Sending it unconditionally therefore narrowed every non-owner's edit to
+      // zero rows: the co-editing this table's `write_visibility_scoped` policy
+      // exists to allow (another adult fixing a target date) came back as
+      // `changed: 0` and surfaced as "This project could not be saved." A
+      // project created by the automation is owned by nobody at all, so for
+      // those it locked out the entire household, permanently.
+      const owns = isOwner(project);
+      const columns = ["name = ?", "description = ?", "status = ?", "target_date = ?",
+                       "budget_cap_cents = ?", "completed_at = ?", "updated_at = ?"];
+      const values = [fields.name, fields.description, fields.status, fields.target_date,
+                      fields.budget_cap_cents, completedAt, now];
+      if (owns) { columns.splice(3, 0, "visibility = ?"); values.splice(3, 0, fields.visibility); }
       await dbWrite(
-        `UPDATE app_projects__projects SET name = ?, description = ?, status = ?, visibility = ?,
-         target_date = ?, budget_cap_cents = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
-        [fields.name, fields.description, fields.status, fields.visibility,
-         fields.target_date, fields.budget_cap_cents, completedAt, now, project.id],
+        `UPDATE app_projects__projects SET ${columns.join(", ")} WHERE id = ?`,
+        [...values, project.id],
         "This project could not be saved.",
       );
+      // A non-owner never sent `visibility`, so the row still holds the old one.
+      if (!owns) fields.visibility = project.visibility;
       Object.assign(project, fields, { completed_at: completedAt, updated_at: now });
       closeModal();
       render();
@@ -848,9 +976,7 @@ async function saveProject(isEdit) {
         publishEvent("project.completed", project.id, {
           project_id: project.id, name: project.name, committed_cents: totals.committedCents,
         });
-        if (mayLogActivity(project)) {
-          logHubActivity("project_completed", `${ME?.name ?? "Someone"} finished the project "${project.name}"`, project.id);
-        }
+        logProjectActivity(project, `Finished the project "${project.name}"`);
       }
     } else {
       const project = {
@@ -876,9 +1002,7 @@ async function saveProject(isEdit) {
           project_id: project.id, name: project.name,
           target_date: project.target_date, budget_cap_cents: project.budget_cap_cents,
         });
-        if (mayLogActivity(project)) {
-          logHubActivity("project_created", `${ME?.name ?? "Someone"} started a project: "${project.name}"`, project.id);
-        }
+        logProjectActivity(project, `Started a project: "${project.name}"`);
       }
     }
   } catch (e) {
@@ -918,7 +1042,6 @@ async function deleteProject() {
     checklist   = checklist.filter(c => c.project_id !== project.id);
     notes       = notes.filter(n => n.project_id !== project.id);
     completions = completions.filter(x => x.project_id !== project.id);
-    reindexCompletions();
     childrenLoaded.delete(project.id);
     closeModal();
     goBack();
@@ -970,11 +1093,19 @@ async function saveBudgetItem(itemId) {
   const btn = busy(itemId ? "Saving…" : "Adding…");
   const now = nowIso();
 
-  // Measured before the write, against the items as they stand without this one,
-  // so an edit is judged on its new value rather than its old one.
-  const others = budgetOf(project.id).filter(b => b.id !== itemId);
-  const added = actual !== null ? actual : estimated;
-  const crossed = crossesBudget(project, others, added);
+  // Both snapshots span the WHOLE line-item list — "before" as it stands now,
+  // "after" with this item's new values folded in. Measuring "before" against
+  // the items MINUS this one (the obvious way, since that is the set "after"
+  // is built from) hides the item that blew the budget from the already-over
+  // test: under a $10,000 cap with $6,000 and $5,000 lines, editing the $5,000
+  // line's label saw $6,000 "not over" then $11,000 "over", and re-announced
+  // the same overrun on every save.
+  const before = budgetOf(project.id);
+  const saved = {
+    id: itemId ?? "__new__",
+    estimated_cents: estimated, actual_cents: actual, purchased,
+  };
+  const crossed = crossesBudget(project, before, itemsAfterSave(before, saved));
 
   try {
     if (existing) {
@@ -1080,6 +1211,11 @@ async function saveChecklistItem(itemId) {
         "Only whoever added this item can change it.",
       );
       Object.assign(existing, { title, due_date: dueDate, assignee_id: assigneeId, is_milestone: isMilestone, updated_at: now });
+      // `is_milestone` and `due_date` are sort keys, so this edit can move the
+      // row. Replace the array to retire the memoised ordering built from it —
+      // mutating a row in place leaves the array identity, and therefore the
+      // cached sort, untouched.
+      checklist = [...checklist];
     } else {
       const item = {
         id: uuid(), project_id: project.id, title, due_date: dueDate, assignee_id: assigneeId,
@@ -1122,7 +1258,25 @@ async function toggleChecklist(itemId) {
   const project = currentProject();
   const item = checklist.find(c => c.id === itemId);
   if (!project || !item) return;
-  const existing = completionOf(item, doneByItem);
+  // One toggle per item at a time. `render()` only runs after the write
+  // resolves, so a double-tap had both handlers read the item as still open and
+  // both INSERT: the second hit UNIQUE(item_id) and raised "Could not tick off
+  // this item." over an item that was, in fact, ticked off. On the untick side
+  // the second DELETE came back `changed: 0` and claimed the reopen failed.
+  if (togglesInFlight.has(itemId)) return;
+  togglesInFlight.add(itemId);
+  render();                                   // paint the checkbox as disabled
+  try {
+    await toggleChecklistWrite(project, item);
+  } finally {
+    togglesInFlight.delete(itemId);
+    render();
+  }
+}
+
+async function toggleChecklistWrite(project, item) {
+  const itemId = item.id;
+  const existing = completionOf(item, doneIndex());
 
   if (existing) {
     if (!canUncompleteItem(existing, project, ME)) {
@@ -1136,7 +1290,6 @@ async function toggleChecklist(itemId) {
         "This item could not be reopened.",
       );
       completions = completions.filter(x => x.id !== existing.id);
-      reindexCompletions();
       render();
     } catch (e) {
       hubAlert("Could not reopen this item.", { description: e.message });
@@ -1162,15 +1315,18 @@ async function toggleChecklist(itemId) {
       "This item could not be ticked off.",
     );
     completions = [...completions, completion];
-    reindexCompletions();
-    render();
-    if (Number(item.is_milestone) === 1 && mayPublish(project)) {
+    // Announced once per item. Un-ticking a milestone that was flagged too
+    // early and re-ticking it is a correction, not a second milestone, and
+    // every re-announcement runs any automation subscribed to the event again.
+    // Session-scoped deliberately: nothing durable records "already announced",
+    // and inventing a column for it would need a write the item's non-owners
+    // are not allowed to make.
+    if (Number(item.is_milestone) === 1 && mayPublish(project) && !announcedMilestones.has(itemId)) {
+      announcedMilestones.add(itemId);
       publishEvent("project.milestone_reached", project.id, {
         project_id: project.id, project_name: project.name, title: item.title,
       });
-      if (mayLogActivity(project)) {
-        logHubActivity("project_milestone", `${ME?.name ?? "Someone"} hit a milestone on "${project.name}": ${item.title}`, project.id);
-      }
+      logProjectActivity(project, `Hit a milestone on "${project.name}": ${item.title}`);
     }
   } catch (e) {
     hubAlert("Could not tick off this item.", { description: e.message });
@@ -1191,7 +1347,6 @@ async function deleteChecklistItem(itemId) {
     // The row's completion goes with it in the database (ON DELETE CASCADE);
     // drop it here so the screen agrees without a refetch.
     completions = completions.filter(x => x.item_id !== itemId);
-    reindexCompletions();
     render();
   } catch (e) {
     hubAlert("Could not remove this item.", { description: e.message });
@@ -1247,22 +1402,69 @@ async function deleteNote(noteId) {
 }
 
 // ── Photos ───────────────────────────────────────────────────────────────────
+/**
+ * Rewrite a project's photo list as a compare-and-swap.
+ *
+ * `file_ids` is a whole-column read-modify-write, and `update_file_list_columns`
+ * makes the hub RECLAIM any id that drops out of it — the outbox re-derives
+ * "still referenced?" from the committed row, so an id no longer listed is
+ * deleted from storage, not merely unlinked. A blind write from a stale copy
+ * therefore did not just lose the other person's edit, it destroyed their
+ * upload: two members each adding a photo meant the second write dropped the
+ * first id and the file went with it.
+ *
+ * The guard is `updated_at`, which is plaintext and so actually comparable —
+ * `file_ids` is encrypted (it matches no plaintext suffix), and AES-GCM's
+ * random IV means a `WHERE file_ids = ?` guard could never match. A row someone
+ * else has touched since our read fails the guard, and we retry against theirs.
+ */
+async function rewritePhotoIds(project, mutate, refusal) {
+  if (!DB) { project.file_ids = JSON.stringify(mutate(parseFileIds(project.file_ids))); return; }
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const stamp = project.updated_at;
+    const next = JSON.stringify(mutate(parseFileIds(project.file_ids)));
+    // Strictly advance the stamp: a same-millisecond write would otherwise
+    // leave the guard satisfiable by a racing caller holding the same value.
+    const now = nowIso() === stamp ? new Date(Date.parse(stamp) + 1).toISOString() : nowIso();
+    const res = await db(
+      "UPDATE app_projects__projects SET file_ids = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
+      [next, now, project.id, stamp],
+    );
+    if (Number(res.changed ?? 0) > 0) {
+      project.file_ids = next;
+      project.updated_at = now;
+      return;
+    }
+    // Zero rows: either somebody else wrote first, or the row is gone. Re-read
+    // and let the loop decide which.
+    const { rows } = await db(
+      "SELECT id, file_ids, updated_at FROM app_projects__projects WHERE id = ?", [project.id]);
+    if (!rows?.length) throw new Error(refusal);
+    project.file_ids = rows[0].file_ids;
+    project.updated_at = rows[0].updated_at;
+  }
+  throw new Error(refusal);
+}
+
 async function addPhoto(input) {
   const project = currentProject();
   const file = input?.files?.[0];
   if (!project || !file) return;
   input.disabled = true;
+  let uploaded = null;
   try {
     // The DB row is only written once the upload has really resolved — a failed
     // upload must not leave an id in file_ids pointing at nothing.
     const { id: fileId } = await files.upload(file);
-    const ids = [...parseFileIds(project.file_ids), fileId];
-    const next = JSON.stringify(ids);
-    await dbWrite("UPDATE app_projects__projects SET file_ids = ?, updated_at = ? WHERE id = ?",
-      [next, nowIso(), project.id], "This photo could not be attached.");
-    project.file_ids = next;
+    uploaded = fileId;
+    await rewritePhotoIds(project, ids => [...ids, fileId], "This photo could not be attached.");
+    uploaded = null;
     render();
   } catch (e) {
+    // The upload landed but the row never named it, so nothing will ever
+    // reclaim it: the file would sit against the household's storage quota
+    // forever. Undo our own half.
+    if (uploaded) await files.delete(uploaded).catch(() => {});
     input.disabled = false;
     hubAlert("Could not add this photo.", { description: e.message });
   }
@@ -1273,13 +1475,11 @@ async function deletePhoto(fileId) {
   if (!project) return;
   const ok = await hubConfirm({ message: "Remove this photo?", confirmLabel: "Remove", destructive: true });
   if (!ok) return;
-  const next = JSON.stringify(parseFileIds(project.file_ids).filter(id => id !== fileId));
   try {
     // `update_file_list_columns` on this column means the hub reclaims the file
     // the moment the UPDATE unlinks it — no client-side delete needed.
-    await dbWrite("UPDATE app_projects__projects SET file_ids = ?, updated_at = ? WHERE id = ?",
-      [next, nowIso(), project.id], "This photo could not be removed.");
-    project.file_ids = next;
+    await rewritePhotoIds(project, ids => ids.filter(id => id !== fileId),
+      "This photo could not be removed.");
     render();
   } catch (e) {
     hubAlert("Could not remove this photo.", { description: e.message });

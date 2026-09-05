@@ -75,7 +75,14 @@
     "projects": {
       "column": "created_by",
       "on_removed": "delete",
-      "only_when": { "column": "visibility", "values": ["private"] }
+      "only_when": { "column": "visibility", "values": ["private"] },
+      "file_id_list_column": "file_ids",
+      "dependent_tables": [
+        { "table": "budget_items", "foreign_key": "project_id" },
+        { "table": "checklist_items", "foreign_key": "project_id" },
+        { "table": "checklist_completions", "foreign_key": "project_id" },
+        { "table": "notes", "foreign_key": "project_id" }
+      ]
     },
     "budget_items": { "column": "created_by", "on_removed": "keep" },
     "checklist_items": [
