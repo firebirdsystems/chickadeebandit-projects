@@ -9,7 +9,7 @@
   "tags": ["projects", "budget", "renovation", "planning", "checklist", "home"],
   "icon": "🔨",
   "nav": { "label": "Projects" },
-  "contexts": ["household"],
+  "contexts": ["household", "shared_space"],
   "data_access": {
     "reads": ["family.members"],
     "writes": []

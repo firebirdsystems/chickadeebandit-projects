@@ -34,6 +34,12 @@ describe("manifest.json", () => {
     expect(typeof manifest.permissions.requires_approval).toBe("boolean");
   });
 
+  it("is installable in a household and in a general or co-parenting space", () => {
+    // A bare `shared_space` grant covers the general and coparenting sub-kinds;
+    // roster is deliberately NOT declared — it needs its own token and audit.
+    expect(manifest.contexts).toEqual(["household", "shared_space"]);
+  });
+
   it("data_access has reads and writes arrays", () => {
     expect(Array.isArray(manifest.data_access.reads)).toBe(true);
     expect(Array.isArray(manifest.data_access.writes)).toBe(true);

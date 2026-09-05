@@ -298,6 +298,32 @@ before they are grouped, so the project drops out of the result entirely.
 Mutation-checked: rewriting `committed_cents` to `SUM(estimated_cents)` fails
 both lanes.
 
+## Shared spaces — 2026-09-05
+
+The app now installs into a **general or co-parenting shared space** as well as
+a household: `manifest.contexts` is `["household", "shared_space"]`. Roster is
+deliberately not declared (it needs its own `shared_space.roster` token plus the
+hub's star-topology audit, and nothing here wants it).
+
+No hub change was needed — the hub already resolves row policies per tenant.
+What changed in the app is the client mirror of that resolution. The manifest's
+"adult" vocabulary conflates two things the hub keeps apart (`policy-roles.ts`):
+
+- **capability** — the `adults` visibility tier, `delete_adult_only`, the
+  visibility choices. Any full member has it in either tenant kind, and the
+  client keeps gating these on `isAdult(me)`.
+- **supervision** — the `adults_bypass` reach over OTHER members' child rows
+  (`canEditChild`, `canUncompleteItem`). In a space every participant is an
+  adult, so this belongs to the steward (`is_admin`) alone; in a co-parenting
+  space both parents are stewards, which behaves like a two-adult household.
+
+`logic.js` gained `configureTenant({ kind, isAdmin })` and `isSupervisor(me)`;
+`index.html` calls `configureTenant` once from the hub's `__TENANT_KIND` /
+`__IS_ADMIN` globals (unset means household). Without this a non-steward in a
+general space was shown edit/delete controls the hub then refused — the server
+was always right, only the buttons lied. Tests: a "shared spaces" block in
+`logic.test.mjs` and a `contexts` pin in `manifest.test.mjs`.
+
 ## State
 
 

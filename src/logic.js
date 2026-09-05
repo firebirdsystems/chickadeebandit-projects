@@ -6,6 +6,31 @@
 import { isAdult } from "./shared.js";
 export { isAdult };
 
+// ── Tenant-aware supervision ─────────────────────────────────────────────────
+// The manifest speaks household vocabulary, and "adult" conflates two things
+// the hub keeps apart (`policy-roles.ts`): CAPABILITY — the `adults` visibility
+// tier, `delete_adult_only` — which any full member has in either tenant kind,
+// and SUPERVISION — the `adults_bypass` reach over OTHER members' rows — which
+// in a shared space belongs to the steward (`is_admin`) alone, because there
+// every participant is an adult and "any adult supervises" would mean everyone.
+// `isAdult(me)` stays the capability gate; `isSupervisor(me)` is the bypass
+// gate, and index.html configures it from the hub's `__TENANT_KIND` /
+// `__IS_ADMIN` globals. Absent configuration it is a household.
+
+let TENANT = { kind: "household", isAdmin: false };
+
+/** Called once by index.html; tests call it to stand in a space. */
+export function configureTenant({ kind = "household", isAdmin = false } = {}) {
+  TENANT = { kind: kind === "shared_space" ? "shared_space" : "household", isAdmin: isAdmin === true };
+}
+
+/** Mirrors `resolvePolicyRoles(...).isSupervisor`: every adult in a household,
+ *  the steward alone in a shared space. */
+export function isSupervisor(me) {
+  if (!me) return false;
+  return TENANT.kind === "shared_space" ? TENANT.isAdmin : isAdult(me);
+}
+
 export const STATUSES = ["planning", "active", "on_hold", "done"];
 
 export const STATUS_LABELS = {
@@ -390,8 +415,10 @@ export function canAddChild(project, me) {
 
 /**
  * Changing or deleting a child row is restricted to the member who wrote it,
- * plus adults: all four child tables declare `adults_bypass: true`, which is
- * `inherit_visibility`'s opt-in supervision over another member's row.
+ * plus supervisors — every adult in a household, the steward alone in a shared
+ * space (see `isSupervisor`): all four child tables declare `adults_bypass:
+ * true`, which is `inherit_visibility`'s opt-in supervision over another
+ * member's row.
  *
  * Without it the writer term was absolute — this app configures no
  * `privileged_groups`, and an `owner_or_visibility` parent grants no other
@@ -407,7 +434,7 @@ export function canAddChild(project, me) {
  */
 export function canEditChild(row, project, me) {
   if (!canSeeProject(project, me)) return false;
-  if (me && isAdult(me)) return true;
+  if (isSupervisor(me)) return true;
   return !!me && row?.created_by === me.id;
 }
 
@@ -423,12 +450,13 @@ export function canCompleteItem(project, me) {
 /**
  * Un-ticking DELETEs that completion row, and the completions table is
  * `inherit_visibility` too: whoever closed the item can reopen it, and — since
- * that table also declares `adults_bypass: true` — so can any adult who can see
- * the project. Undoing a child's mistaken tick was the case with no remedy.
+ * that table also declares `adults_bypass: true` — so can any supervisor who
+ * can see the project. Undoing a child's mistaken tick was the case with no
+ * remedy.
  */
 export function canUncompleteItem(completion, project, me) {
   if (!canSeeProject(project, me)) return false;
-  if (me && isAdult(me)) return true;
+  if (isSupervisor(me)) return true;
   return !!me && completion?.done_by === me.id;
 }
 

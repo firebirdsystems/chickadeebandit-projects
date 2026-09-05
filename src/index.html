@@ -186,7 +186,7 @@ import {
   shouldRepaint, loadProjectTail,
   canSeeProject, canEditProject, canDeleteProject, canAddChild, canEditChild,
   canCompleteItem, canUncompleteItem, visibilityChoicesFor, isUndeletableWhilePrivate,
-  searchableFields,
+  searchableFields, configureTenant,
 } from "./logic.js";
 
 // ── Hub runtime globals (empty in demo mode) ─────────────────────────────────
@@ -202,6 +202,12 @@ const files   = createFilesHelper(window.__FILES_URL ?? "");
  *  and filters the seeded project straight back out of the list. Standing in
  *  as the demo project's owner is what makes the demo show its own data. */
 const ME = window.__CURRENT_MEMBER ?? (DB ? null : { id: "demo-1", name: "Alex", role: "adult" });
+
+/** In a shared space every member is an adult, so the `adults_bypass` reach over
+ *  other members' rows belongs to the steward alone — the gates in logic.js
+ *  must know which tenant they are in, or a non-steward is shown edit and
+ *  delete controls the hub then refuses. Unset globals mean a household. */
+configureTenant({ kind: window.__TENANT_KIND, isAdmin: window.__IS_ADMIN });
 
 // ── First-render reads ───────────────────────────────────────────────────────
 // Declared once here and mirrored byte-for-byte in manifest.preload, so the hub

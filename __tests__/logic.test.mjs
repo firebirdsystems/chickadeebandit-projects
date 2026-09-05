@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import {
   STATUS_LABELS,
   toCents, fmtDollars, centsInput,
@@ -10,6 +10,7 @@ import {
   canSeeProject, canEditProject, canDeleteProject, canAddChild, canEditChild,
   canCompleteItem, canUncompleteItem, visibilityChoicesFor, isUndeletableWhilePrivate,
   mayPublish, assignableMembers,
+  configureTenant, isSupervisor,
   writeOrThrow, rewriteFileIds, parseFileIds, publishBestEffort,
   toggleDecision, announcedMilestoneIds,
   chunk, D1_MAX_BINDS, CHILD_ORDERS, cursorFrom, keysetClause,
@@ -501,6 +502,61 @@ describe("canCompleteItem / canUncompleteItem", () => {
 
   it("refuses to reopen on a project the caller cannot see", () => {
     expect(canUncompleteItem(completion, project({ visibility: "adults" }), CHILD)).toBe(false);
+  });
+});
+
+describe("shared spaces — supervision belongs to the steward alone", () => {
+  // Mirrors the hub's `resolvePolicyRoles`: in a space every participant is an
+  // adult, so the `adults_bypass` reach over OTHER members' rows — canEditChild
+  // and canUncompleteItem — collapses onto the steward (`is_admin`). The
+  // CAPABILITY gates (`adults` tier, `delete_adult_only`, visibility choices)
+  // stay "any adult", exactly as the hub applies them to any full member.
+  const shared = project({ visibility: "everyone" });
+  const completion = { id: "x1", item_id: "c1", done_by: "a1", done_at: "2026-09-04T09:00:00Z" };
+  const inSpace = (isAdmin) => configureTenant({ kind: "shared_space", isAdmin });
+
+  afterEach(() => configureTenant());
+
+  it("isSupervisor is every adult in a household, the steward alone in a space", () => {
+    expect(isSupervisor(ADULT)).toBe(true);
+    expect(isSupervisor(CHILD)).toBe(false);
+    inSpace(false);
+    expect(isSupervisor(ADULT)).toBe(false);
+    inSpace(true);
+    expect(isSupervisor(ADULT)).toBe(true);
+    expect(isSupervisor(null)).toBe(false);
+  });
+
+  it("a non-steward adult loses the bypass over another member's child row", () => {
+    inSpace(false);
+    expect(canEditChild(line({ created_by: "a1" }), shared, OTHER_ADULT)).toBe(false);
+    expect(canUncompleteItem(completion, shared, OTHER_ADULT)).toBe(false);
+  });
+
+  it("the non-steward keeps their own rows — the bypass only ever ADDED", () => {
+    inSpace(false);
+    expect(canEditChild(line({ created_by: "a2" }), shared, OTHER_ADULT)).toBe(true);
+    expect(canUncompleteItem({ ...completion, done_by: "a2" }, shared, OTHER_ADULT)).toBe(true);
+  });
+
+  it("the steward keeps the bypass, still bounded by what they can see", () => {
+    inSpace(true);
+    expect(canEditChild(line({ created_by: "a1" }), shared, OTHER_ADULT)).toBe(true);
+    expect(canUncompleteItem(completion, shared, OTHER_ADULT)).toBe(true);
+    const priv = project({ visibility: "private", created_by: "a1" });
+    expect(canEditChild(line({ created_by: "a1" }), priv, OTHER_ADULT)).toBe(false);
+  });
+
+  it("capability gates are untouched by the tenant kind", () => {
+    inSpace(false);
+    expect(canSeeProject(project({ visibility: "adults" }), OTHER_ADULT)).toBe(true);
+    expect(canDeleteProject(shared, OTHER_ADULT)).toBe(true);
+    expect(visibilityChoicesFor(OTHER_ADULT, shared)).toEqual(["everyone", "adults", "private"]);
+  });
+
+  it("an unknown tenant kind falls back to household semantics", () => {
+    configureTenant({ kind: undefined, isAdmin: undefined });
+    expect(isSupervisor(ADULT)).toBe(true);
   });
 });
 
