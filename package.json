@@ -1,0 +1,16 @@
+{
+  "name": "chickadeebandit-app-template",
+  "version": "1.0.0",
+  "description": "Minimal starting template for a Chickadee Bandit app",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node dev.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

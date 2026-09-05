@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Projects</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: var(--hub-bg, #f9fafb);
+      --surface: var(--hub-surface, #ffffff);
+      --border: var(--hub-border, #e5e7eb);
+      --border-mid: var(--hub-border, #d1d5db);
+      --text: var(--hub-text, #000000);
+      --muted: var(--hub-text-muted, #6b7280);
+      --accent: var(--hub-primary, #111827);
+      --accent-hover: var(--hub-primary-hover, #374151);
+      --accent-fg: var(--hub-primary-fg, #ffffff);
+      --radius: var(--hub-radius, 8px);
+      --red: #b91c1c;
+      --red-soft: #fee2e2;
+      --green: #15803d;
+      --green-soft: #dcfce7;
+      --amber: #854d0e;
+      --amber-soft: #fef9c3;
+      --shadow: 0 1px 3px rgba(15, 23, 42, .07);
+    }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--hub-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      font-size: var(--hub-font-size, 15px);
+      line-height: 1.5;
+    }
+    .app { max-width: 720px; margin: 0 auto; padding: 16px; }
+    .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    h1 { font-size: 1.35rem; line-height: 1.2; }
+    h2 { font-size: 1.05rem; line-height: 1.25; }
+    .muted { color: var(--muted); }
+    .tiny { font-size: .78rem; }
+    .stack { display: grid; gap: 10px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .card-link { cursor: pointer; }
+    .card-link:hover { border-color: var(--border-mid); }
+    .item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .item-title { font-weight: 700; }
+    .item-meta { margin-top: 2px; color: var(--muted); font-size: .8rem; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      border: 1px solid var(--border-mid); border-radius: 8px; padding: 8px 12px;
+      font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer;
+      min-height: 38px; background: var(--surface); color: var(--text);
+    }
+    .btn:hover { background: var(--bg); }
+    .btn-primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: .48; cursor: default; }
+    .btn-sm { min-height: 30px; padding: 4px 8px; font-size: .78rem; }
+    .btn-back { background: none; border: 0; padding: 4px 0; font: inherit; font-size: .84rem; font-weight: 700; color: var(--muted); cursor: pointer; }
+    .btn-back:hover { color: var(--text); }
+    .btn-quiet-danger {
+      min-height: 28px; padding: 3px 8px; background: transparent; color: var(--muted);
+      border: 0; font-size: .76rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-quiet-danger:hover { background: var(--red-soft); color: var(--red); }
+    .btn-add {
+      width: 100%; border: 1.5px dashed var(--border-mid); background: none; color: var(--muted);
+      border-radius: 8px; padding: 10px; font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer;
+    }
+    .btn-add:hover { border-color: var(--accent); color: var(--text); }
+    .row-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+    .field { display: grid; gap: 4px; margin-bottom: 12px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    label { font-size: .76rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 800; }
+    input, textarea, select {
+      width: 100%; border: 1.5px solid var(--border-mid); border-radius: 8px;
+      padding: 9px 11px; font: inherit; background: var(--surface); color: var(--text);
+    }
+    textarea { min-height: 70px; resize: vertical; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+    .check-line { display: flex; align-items: center; gap: 8px; }
+    .check-line input { width: auto; }
+    .check-line label { text-transform: none; letter-spacing: 0; font-size: .86rem; font-weight: 600; color: var(--text); }
+    .search-row { margin-bottom: 12px; }
+    .search-input { width: 100%; border: 1.5px solid var(--border-mid); border-radius: 8px; padding: 9px 11px; font: inherit; background: var(--surface); color: var(--text); }
+    .search-input:focus { outline: none; border-color: var(--accent); }
+    .empty, .loading { color: var(--muted); text-align: center; padding: 28px 16px; }
+    .empty-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .error { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
+
+    .badge { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: .72rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+    .badge-planning { background: #f3f4f6; color: #6b7280; }
+    .badge-active   { background: #dbeafe; color: #1d4ed8; }
+    .badge-on_hold  { background: var(--amber-soft); color: var(--amber); }
+    .badge-done     { background: var(--green-soft); color: var(--green); }
+    .badge-over     { background: var(--red-soft); color: var(--red); }
+    .badge-private  { background: #ede9fe; color: #7c3aed; }
+    .badge-overdue  { background: var(--red-soft); color: var(--red); }
+
+    .progress-bar { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; margin-top: 8px; }
+    .progress-fill { height: 100%; border-radius: 99px; background: var(--accent); transition: width .3s; }
+    .progress-fill.is-over { background: var(--red); }
+
+    .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; gap: 2px; overflow-x: auto; }
+    .tab {
+      background: none; border: none; border-bottom: 2px solid transparent; padding: 8px 14px;
+      font: inherit; font-size: .875rem; font-weight: 600; cursor: pointer; color: var(--muted);
+      margin-bottom: -1px; white-space: nowrap;
+    }
+    .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+    .stat-row { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; }
+    .stat-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 800; }
+    .stat-value { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stat-value.is-over { color: var(--red); }
+
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 800; padding: 8px 10px; background: var(--bg); }
+    td { padding: 10px; border-bottom: 1px solid var(--border); font-size: .88rem; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .amount-col { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .actions-col { text-align: right; white-space: nowrap; width: 1%; }
+    .table-wrap { overflow-x: auto; }
+
+    .list-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .list-item:last-child { border-bottom: none; }
+    .list-item.is-done .list-label { text-decoration: line-through; opacity: .45; }
+    .list-body { flex: 1; min-width: 0; }
+    .list-label { font-weight: 600; }
+    .checkbox {
+      width: 22px; height: 22px; flex-shrink: 0; margin-top: 1px;
+      border: 1.5px solid var(--border-mid); border-radius: 6px; background: var(--surface);
+      cursor: pointer; font-size: .8rem; line-height: 1; color: transparent; padding: 0;
+    }
+    .checkbox.is-checked { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+    .milestone-flag { font-size: .78rem; }
+
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+    .photo { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+    .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .photo button { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.6); color: #fff; border: 0; border-radius: 6px; padding: 2px 7px; font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; }
+
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px;
+    }
+    .modal {
+      background: var(--surface); border-radius: var(--hub-radius, 12px); padding: 24px;
+      width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,.18);
+    }
+    .modal-sub { font-size: .83rem; color: var(--muted); margin-top: -8px; margin-bottom: 14px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+  </style>
+  <base href="/run/projects/">
+</head>
+<body>
+<div class="app">
+  <div id="root" class="loading">Loading…</div>
+</div>
+
+<script type="module">
+import { esc, hubConfirm, hubAlert, hubToday, searchMatch, createFilesHelper } from "/hub-sdk.js";
+import {
+  STATUSES, STATUS_LABELS, VISIBILITY_LABELS,
+  toCents, fmtDollars, centsInput,
+  budgetTotals, budgetStatus, crossesBudget,
+  checklistProgress, sortChecklist, isOverdue,
+  completionIndex, completionOf, isDone,
+  canSeeProject, canEditProject, canDeleteProject, canAddChild, canEditChild,
+  canCompleteItem, canUncompleteItem,
+  searchableFields,
+} from "./logic.js";
+
+// ── Hub runtime globals (empty in demo mode) ─────────────────────────────────
+const CONTEXT = window.__CONTEXT_URL ?? "";
+const DB      = window.__DB_URL ?? "";
+const EVENTS  = window.__EVENTS_URL ?? "";
+const APP_ID  = window.__APP_ID ?? "projects";
+const ME      = window.__CURRENT_MEMBER ?? null;
+const files   = createFilesHelper(window.__FILES_URL ?? "");
+
+// ── First-render reads ───────────────────────────────────────────────────────
+// Declared once here and mirrored byte-for-byte in manifest.preload, so the hub
+// can answer this batch from the rows it embedded in the document and the first
+// paint costs no round trip. __tests__/preload.test.mjs pins the two copies
+// together — a drifted copy is not an error, it is a preload that silently
+// never answers.
+//
+// The three child reads are scoped to open projects through a JOIN on their
+// parent. That bounds a read the hub runs on every launch for every household,
+// and it is deliberately a JOIN rather than a subquery: the row-policy rewriter
+// rewrites governed tables named at the top level and fails closed on one that
+// appears only inside a subquery.
+const LOCAL_READS = {
+  "projects": "SELECT * FROM app_projects__projects ORDER BY (completed_at IS NULL) DESC, (target_date IS NULL), target_date, created_at LIMIT 100",
+  "budget": "SELECT b.* FROM app_projects__budget_items b JOIN app_projects__projects p ON p.id = b.project_id WHERE p.completed_at IS NULL ORDER BY b.project_id, b.sort_order, b.created_at LIMIT 500",
+  "checklist": "SELECT c.* FROM app_projects__checklist_items c JOIN app_projects__projects p ON p.id = c.project_id WHERE p.completed_at IS NULL ORDER BY c.project_id, c.sort_order, c.created_at LIMIT 500",
+  "notes": "SELECT n.* FROM app_projects__notes n JOIN app_projects__projects p ON p.id = n.project_id WHERE p.completed_at IS NULL ORDER BY n.project_id, n.created_at DESC LIMIT 200",
+  "completions": "SELECT x.* FROM app_projects__checklist_completions x JOIN app_projects__projects p ON p.id = x.project_id WHERE p.completed_at IS NULL ORDER BY x.project_id, x.done_at LIMIT 500"
+};
+
+/** Every preload's row cap, keyed the same way. A result that comes back at its
+ *  cap was TRUNCATED, and the projects past the cut have no children loaded —
+ *  see loadProjects. */
+const READ_LIMITS = { projects: 100, budget: 500, checklist: 500, notes: 200, completions: 500 };
+
+// ── App state ────────────────────────────────────────────────────────────────
+let members = [];
+let memberMap = new Map();
+let projects = [];
+let budget = [];
+let checklist = [];
+let notes = [];
+let completions = [];
+/** item_id → completion row. Rebuilt whenever `completions` changes. */
+let doneByItem = new Map();
+let view = "list";              // "list" | "project"
+let currentProjectId = null;
+let currentTab = "budget";      // "budget" | "checklist" | "notes" | "photos"
+let searchQ = "";
+let error = "";
+let modalEl = null;
+
+// Projects whose children we already hold. The preload only carries children of
+// OPEN projects, so opening a finished one fetches its rows once.
+const childrenLoaded = new Set();
+
+function nowIso() { return new Date().toISOString(); }
+function uuid() { return crypto.randomUUID(); }
+function memberName(id) { return memberMap.get(id)?.name ?? "Someone"; }
+function currentProject() { return projects.find(p => p.id === currentProjectId) ?? null; }
+function jsArg(value) { return esc(JSON.stringify(String(value))); }
+
+/** A yyyy-mm-dd built from parts — `new Date("2026-08-30")` is UTC midnight and
+ *  renders as the 29th west of Greenwich. */
+function fmtDate(value) {
+  if (!value) return "";
+  const [y, m, d] = String(value).split("-").map(Number);
+  if (!y || !m || !d) return String(value);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function parseFileIds(value) {
+  try {
+    const parsed = JSON.parse(value ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter(id => typeof id === "string") : [];
+  } catch { return []; }
+}
+
+/** Children of a project, from the arrays we already hold. */
+function budgetOf(projectId)    { return budget.filter(b => b.project_id === projectId); }
+function checklistOf(projectId) { return sortChecklist(checklist.filter(c => c.project_id === projectId)); }
+function notesOf(projectId)     { return notes.filter(n => n.project_id === projectId); }
+
+function reindexCompletions() { doneByItem = completionIndex(completions); }
+
+/** A private project never reaches the cross-app bus or the household feed —
+ *  both are read by people who cannot open the project itself. */
+function mayPublish(project)  { return !!project && project.visibility !== "private"; }
+function mayLogActivity(project) { return !!project && project.visibility === "everyone"; }
+
+// ── DB ───────────────────────────────────────────────────────────────────────
+async function db(sql, params = []) {
+  if (!DB) return { rows: [] };
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql, params }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.error) throw new Error(json.error || `Database request failed (${res.status})`);
+  return json;
+}
+
+/**
+ * A write that MUST land. `/api/db` answers a policy-narrowed statement with
+ * `changed: 0` and HTTP 200 — no error to catch — so a caller that assumed
+ * success would update the screen and let the change evaporate on next load.
+ * Every write below goes through this rather than `db` directly.
+ */
+async function dbWrite(sql, params, refusal) {
+  const res = await db(sql, params);
+  if (Number(res.changed ?? 0) === 0) throw new Error(refusal);
+  return res;
+}
+
+/** Several statements as one transaction — all apply, or none does. */
+async function dbBatch(statements) {
+  if (!DB || statements.length === 0) return { results: [] };
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ statements }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.error) throw new Error(json.error || `Database request failed (${res.status})`);
+  return json;
+}
+
+// ── Side effects (best-effort; the row is already written) ────────────────────
+async function publishEvent(type, subjectId, payload = {}) {
+  if (!EVENTS) return;
+  try {
+    await fetch(EVENTS, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source_app_id: APP_ID, type, subject_id: subjectId, payload }),
+    });
+  } catch { /* ignored on purpose */ }
+}
+
+function logHubActivity(type, description, projectId) {
+  fetch("/api/activity", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      type,
+      actor: ME?.name ?? "Someone",
+      description,
+      metadata: { deepLink: { appId: APP_ID, params: { projectId } } },
+    }),
+  }).catch(() => {});
+}
+
+// ── Loading ──────────────────────────────────────────────────────────────────
+async function loadMembers() {
+  if (!CONTEXT) {
+    members = [
+      { id: "demo-1", name: "Alex", role: "adult" },
+      { id: "demo-2", name: "Jordan", role: "adult" },
+      { id: "demo-3", name: "Casey", role: "child" },
+    ];
+  } else {
+    try {
+      const res = await fetch(`${CONTEXT}?keys=family.members`);
+      members = ((await res.json())["family.members"]) ?? [];
+    } catch { members = []; }
+  }
+  memberMap = new Map(members.map(m => [m.id, m]));
+}
+
+function demoData() {
+  const today = hubToday();
+  projects = [{
+    id: "demo-p1", name: "Bathroom renovation",
+    description: "Replacing the tile, vanity and extractor fan.",
+    status: "active", visibility: "adults", target_date: today,
+    budget_cap_cents: 1200000, file_ids: "[]",
+    created_by: "demo-1", created_at: nowIso(), updated_at: nowIso(), completed_at: null,
+  }];
+  budget = [
+    { id: "demo-b1", project_id: "demo-p1", label: "Floor tile", vendor_name: "Tile Depot", estimated_cents: 240000, actual_cents: 268000, purchased: 1, sort_order: 0, created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
+    { id: "demo-b2", project_id: "demo-p1", label: "Vanity unit", vendor_name: "", estimated_cents: 390000, actual_cents: null, purchased: 0, sort_order: 1, created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
+    { id: "demo-b3", project_id: "demo-p1", label: "Plumber — 2 days", vendor_name: "R. Okafor", estimated_cents: 450000, actual_cents: null, purchased: 0, sort_order: 2, created_by: "demo-2", created_at: nowIso(), updated_at: nowIso() },
+  ];
+  checklist = [
+    { id: "demo-c1", project_id: "demo-p1", title: "Demolition complete", due_date: today, assignee_id: null, is_milestone: 1, sort_order: 0, created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
+    { id: "demo-c2", project_id: "demo-p1", title: "Choose grout colour", due_date: today, assignee_id: "demo-2", is_milestone: 0, sort_order: 1, created_by: "demo-1", created_at: nowIso(), updated_at: nowIso() },
+  ];
+  completions = [
+    { id: "demo-x1", project_id: "demo-p1", item_id: "demo-c1", done_by: "demo-1", done_at: nowIso() },
+  ];
+  reindexCompletions();
+  notes = [
+    { id: "demo-n1", project_id: "demo-p1", body: "Went with the matte tile (model 4471), not the gloss — less slippery underfoot.", created_by: "demo-2", created_at: nowIso() },
+  ];
+  childrenLoaded.add("demo-p1");
+}
+
+/**
+ * The projects whose children a child-preload really carried.
+ *
+ * Each child read is capped, and the caps are shared across every open project.
+ * Past the cap the rows simply stop — ordered by project_id, so it is the tail
+ * of that ordering that goes missing. Marking every open project "loaded"
+ * regardless (which is what this used to do) meant `ensureChildren` never
+ * repaired them and the tabs rendered "No line items yet" over data that was
+ * really there. A result sitting exactly at its cap is treated as truncated,
+ * and the last project_id in it is dropped too: it is the one that was cut
+ * mid-project.
+ */
+function fullyLoadedFrom(rows, limit) {
+  if (rows.length < limit) return null;              // null = "all of them"
+  const ids = rows.map(r => r.project_id);
+  const lastCut = ids[ids.length - 1];
+  return new Set(ids.filter(id => id !== lastCut));
+}
+
+async function loadProjects() {
+  if (!DB) { demoData(); return; }
+  const { results } = await dbBatch(Object.values(LOCAL_READS).map(sql => ({ sql, params: [] })));
+  const empty = Object.keys(LOCAL_READS).map(() => ({ rows: [] }));
+  const [projectsRes, budgetRes, checklistRes, notesRes, completionsRes] =
+    results.length ? results : empty;
+  projects    = projectsRes.rows ?? [];
+  budget      = budgetRes.rows ?? [];
+  checklist   = checklistRes.rows ?? [];
+  notes       = notesRes.rows ?? [];
+  completions = completionsRes.rows ?? [];
+  reindexCompletions();
+
+  // A project counts as loaded only when EVERY child read covered it.
+  const covered = [
+    fullyLoadedFrom(budget, READ_LIMITS.budget),
+    fullyLoadedFrom(checklist, READ_LIMITS.checklist),
+    fullyLoadedFrom(notes, READ_LIMITS.notes),
+    fullyLoadedFrom(completions, READ_LIMITS.completions),
+  ];
+  childrenLoaded.clear();
+  for (const p of projects) {
+    if (p.completed_at) continue;                    // its children never preload
+    if (covered.every(set => set === null || set.has(p.id))) childrenLoaded.add(p.id);
+  }
+}
+
+/** The preload only carries children of open projects; fetch a finished one's
+ *  rows the first time someone opens it. */
+async function ensureChildren(projectId) {
+  if (!DB || childrenLoaded.has(projectId)) return;
+  const { results } = await dbBatch([
+    { sql: "SELECT * FROM app_projects__budget_items WHERE project_id = ? ORDER BY sort_order, created_at", params: [projectId] },
+    { sql: "SELECT * FROM app_projects__checklist_items WHERE project_id = ? ORDER BY sort_order, created_at", params: [projectId] },
+    { sql: "SELECT * FROM app_projects__notes WHERE project_id = ? ORDER BY created_at DESC", params: [projectId] },
+    { sql: "SELECT * FROM app_projects__checklist_completions WHERE project_id = ?", params: [projectId] },
+  ]);
+  const [b, c, n, x] = results.length ? results : [{ rows: [] }, { rows: [] }, { rows: [] }, { rows: [] }];
+  budget      = budget.filter(r => r.project_id !== projectId).concat(b.rows ?? []);
+  checklist   = checklist.filter(r => r.project_id !== projectId).concat(c.rows ?? []);
+  notes       = notes.filter(r => r.project_id !== projectId).concat(n.rows ?? []);
+  completions = completions.filter(r => r.project_id !== projectId).concat(x.rows ?? []);
+  reindexCompletions();
+  childrenLoaded.add(projectId);
+}
+
+async function refresh() {
+  error = "";
+  try {
+    await Promise.all([loadMembers(), loadProjects()]);
+  } catch (e) {
+    error = e.message;
+  }
+  render();
+}
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+async function openProject(id) {
+  const project = projects.find(p => p.id === id);
+  if (!project) return;
+  try { await ensureChildren(id); } catch (e) { error = e.message; }
+  currentProjectId = id;
+  currentTab = "budget";
+  view = "project";
+  render();
+}
+
+function goBack() {
+  view = "list";
+  currentProjectId = null;
+  error = "";
+  render();
+}
+
+function render() {
+  const root = document.getElementById("root");
+  root.className = "";
+  const project = currentProject();
+  root.innerHTML = (view === "project" && project) ? renderProject(project) : renderList();
+  if (view === "project" && !project) { view = "list"; currentProjectId = null; }
+}
+
+// ── List view ────────────────────────────────────────────────────────────────
+function statusBadge(status) {
+  return `<span class="badge badge-${esc(status)}">${esc(STATUS_LABELS[status] ?? status)}</span>`;
+}
+
+function projectCard(project) {
+  const items = budgetOf(project.id);
+  const money = budgetStatus(project, items);
+  const totals = budgetTotals(items);
+  const progress = checklistProgress(checklistOf(project.id), doneByItem);
+  const meta = [];
+  if (project.target_date) meta.push(`Aiming for ${fmtDate(project.target_date)}`);
+  if (progress) meta.push(`${progress.done}/${progress.total} done`);
+  if (money) meta.push(`${fmtDollars(money.committedCents)} of ${fmtDollars(money.capCents)}`);
+  else if (totals.lineItems) meta.push(`${fmtDollars(totals.committedCents)} budgeted`);
+
+  return `
+    <article class="card card-link" data-testid="project-card" data-project-id="${esc(project.id)}"
+             onclick="openProjectById(${jsArg(project.id)})">
+      <div class="item-head">
+        <div>
+          <div class="item-title" data-testid="project-name">${esc(project.name)}</div>
+          ${project.description ? `<div class="item-meta">${esc(project.description)}</div>` : ""}
+          ${meta.length ? `<div class="item-meta tiny">${esc(meta.join(" · "))}</div>` : ""}
+        </div>
+        <div class="row-actions">
+          ${project.visibility === "private" ? `<span class="badge badge-private">Only me</span>` : ""}
+          ${money && money.over ? `<span class="badge badge-over">Over budget</span>` : ""}
+          ${statusBadge(project.status)}
+        </div>
+      </div>
+      ${money ? `
+        <div class="progress-bar">
+          <div class="progress-fill${money.over ? " is-over" : ""}" style="width:${money.pct}%"></div>
+        </div>` : ""}
+    </article>
+  `;
+}
+
+function visibleProjects() {
+  const list = projects.filter(p => canSeeProject(p, ME));
+  if (!searchQ) return list;
+  return list.filter(p => searchMatch(searchQ, searchableFields(p)));
+}
+
+function renderProjectList() {
+  const list = visibleProjects();
+  if (!list.length) {
+    if (searchQ) return `<div class="card empty"><div class="empty-icon">🔍</div><p>No projects match "${esc(searchQ)}".</p></div>`;
+    return `<div class="card empty" data-testid="empty-state">
+      <div class="empty-icon">🔨</div>
+      <p>No projects yet. Start one for the next big thing — a renovation, a move, a trip fund.</p>
+    </div>`;
+  }
+  return list.map(projectCard).join("");
+}
+
+function renderList() {
+  return `
+    <div class="topbar">
+      <div>
+        <h1>Projects</h1>
+        <p class="muted tiny">Budgets, checklists and decisions for the big things.</p>
+      </div>
+      <button class="btn btn-primary btn-sm" type="button" onclick="openNewProject()" data-testid="new-project">New project</button>
+    </div>
+    ${error ? `<div class="error">${esc(error)}</div>` : ""}
+    ${projects.length ? `
+      <div class="search-row">
+        <input id="search" class="search-input" type="search" placeholder="Search projects…" aria-label="Search projects" value="${esc(searchQ)}" />
+      </div>` : ""}
+    <section class="stack" id="project-list">${renderProjectList()}</section>
+  `;
+}
+
+// ── Project view ─────────────────────────────────────────────────────────────
+function renderProject(project) {
+  const items = budgetOf(project.id);
+  const money = budgetStatus(project, items);
+  const totals = budgetTotals(items);
+  const canEdit = canEditProject(project, ME);
+
+  return `
+    <button class="btn-back" type="button" onclick="goBackToList()">← All projects</button>
+    ${error ? `<div class="error">${esc(error)}</div>` : ""}
+    <div class="topbar" style="margin-top:8px">
+      <div>
+        <h1 data-testid="project-title">${esc(project.name)}</h1>
+        ${project.description ? `<p class="muted tiny">${esc(project.description)}</p>` : ""}
+        <p class="muted tiny">
+          ${statusBadge(project.status)}
+          ${project.target_date ? ` · Aiming for ${esc(fmtDate(project.target_date))}` : ""}
+          · ${esc(VISIBILITY_LABELS[project.visibility] ?? project.visibility)}
+        </p>
+      </div>
+      ${canEdit ? `<button class="btn btn-sm" type="button" onclick="openEditProject()">Edit</button>` : ""}
+    </div>
+
+    <div class="card">
+      <div class="stat-row">
+        <div>
+          <div class="stat-label">Committed</div>
+          <div class="stat-value${money && money.over ? " is-over" : ""}" data-testid="committed">${esc(fmtDollars(totals.committedCents))}</div>
+        </div>
+        <div>
+          <div class="stat-label">Budget</div>
+          <div class="stat-value">${esc(money ? fmtDollars(money.capCents) : "—")}</div>
+        </div>
+        <div>
+          <div class="stat-label">${money ? (money.over ? "Over by" : "Left") : "Estimated"}</div>
+          <div class="stat-value${money && money.over ? " is-over" : ""}">
+            ${esc(money ? fmtDollars(Math.abs(money.remainingCents)) : fmtDollars(totals.estimatedCents))}
+          </div>
+        </div>
+      </div>
+      ${money ? `
+        <div class="progress-bar">
+          <div class="progress-fill${money.over ? " is-over" : ""}" style="width:${money.pct}%"></div>
+        </div>` : `<p class="muted tiny" style="margin-top:8px">No budget set — add one from Edit to track spend against a cap.</p>`}
+    </div>
+
+    <div class="tabs" style="margin-top:16px">
+      ${["budget", "checklist", "notes", "photos"].map(tab => `
+        <button class="tab${currentTab === tab ? " active" : ""}" type="button"
+                onclick="setTab(${jsArg(tab)})" data-testid="tab-${esc(tab)}">${esc(tabLabel(tab, project))}</button>
+      `).join("")}
+    </div>
+    <div id="tab-content">${renderTab(project)}</div>
+  `;
+}
+
+function tabLabel(tab, project) {
+  if (tab === "budget") return `Budget (${budgetOf(project.id).length})`;
+  if (tab === "checklist") {
+    const progress = checklistProgress(checklistOf(project.id), doneByItem);
+    return progress ? `Checklist (${progress.done}/${progress.total})` : "Checklist";
+  }
+  if (tab === "notes") return `Decisions (${notesOf(project.id).length})`;
+  return `Photos (${parseFileIds(project.file_ids).length})`;
+}
+
+function renderTab(project) {
+  if (currentTab === "budget") return renderBudgetTab(project);
+  if (currentTab === "checklist") return renderChecklistTab(project);
+  if (currentTab === "notes") return renderNotesTab(project);
+  return renderPhotosTab(project);
+}
+
+// ── Budget tab ───────────────────────────────────────────────────────────────
+function renderBudgetTab(project) {
+  const items = budgetOf(project.id);
+  const canAdd = canAddChild(project, ME);
+  const rows = items.map(item => `
+    <tr data-testid="budget-row" data-item-id="${esc(item.id)}">
+      <td>
+        <div style="font-weight:600">${esc(item.label)}</div>
+        ${item.vendor_name ? `<div class="item-meta tiny">${esc(item.vendor_name)}</div>` : ""}
+      </td>
+      <td class="amount-col">${esc(fmtDollars(item.estimated_cents))}</td>
+      <td class="amount-col">${esc(fmtDollars(item.actual_cents))}</td>
+      <td class="actions-col">
+        ${canEditChild(item, project, ME) ? `
+          <button class="btn btn-sm" type="button" onclick="openEditBudgetItem(${jsArg(item.id)})">Edit</button>
+          <button class="btn-quiet-danger" type="button" onclick="removeBudgetItem(${jsArg(item.id)})">Delete</button>
+        ` : ""}
+      </td>
+    </tr>
+  `).join("");
+
+  return `
+    ${items.length ? `
+      <div class="card table-wrap" style="padding:0">
+        <table>
+          <thead><tr><th>Item</th><th class="amount-col">Estimate</th><th class="amount-col">Actual</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>` : `<div class="card empty"><p>No line items yet. Add what you expect it to cost, then fill in the real price as the bills land.</p></div>`}
+    ${canAdd ? `<button class="btn-add" type="button" style="margin-top:10px" onclick="openNewBudgetItem()">+ Add a line item</button>` : ""}
+  `;
+}
+
+// ── Checklist tab ────────────────────────────────────────────────────────────
+function renderChecklistTab(project) {
+  const items = checklistOf(project.id);
+  const today = hubToday();
+  const canAdd = canAddChild(project, ME);
+
+  const rows = items.map(item => {
+    const completion = completionOf(item, doneByItem);
+    const done = !!completion;
+    const overdue = isOverdue(item, today, doneByItem);
+    // Ticking off needs only visibility of the project; reopening belongs to
+    // whoever closed it. A checkbox nobody may press is disabled rather than
+    // hidden, so a done item still reads as done.
+    const mayToggle = done
+      ? canUncompleteItem(completion, project, ME)
+      : canCompleteItem(project, ME);
+    const meta = [];
+    if (item.due_date) meta.push(`${done ? "Was due" : "Due"} ${fmtDate(item.due_date)}`);
+    if (item.assignee_id) meta.push(memberName(item.assignee_id));
+    if (done) meta.push(`Done by ${memberName(completion.done_by)}`);
+    return `
+      <div class="list-item${done ? " is-done" : ""}" data-testid="checklist-row" data-item-id="${esc(item.id)}">
+        <button class="checkbox${done ? " is-checked" : ""}" type="button"${mayToggle ? "" : " disabled"}
+                aria-label="${done ? "Mark not done" : "Mark done"}"
+                title="${done && !mayToggle ? esc(`Only ${memberName(completion.done_by)} can reopen this`) : ""}"
+                onclick="toggleChecklistItem(${jsArg(item.id)})">✓</button>
+        <div class="list-body">
+          <div class="list-label">
+            ${Number(item.is_milestone) === 1 ? `<span class="milestone-flag">🚩</span> ` : ""}${esc(item.title)}
+          </div>
+          <div class="item-meta tiny">
+            ${esc(meta.join(" · "))}
+            ${overdue ? ` <span class="badge badge-overdue">Overdue</span>` : ""}
+          </div>
+        </div>
+        ${canEditChild(item, project, ME) ? `
+          <div class="row-actions">
+            <button class="btn btn-sm" type="button" onclick="openEditChecklistItem(${jsArg(item.id)})">Edit</button>
+            <button class="btn-quiet-danger" type="button" onclick="removeChecklistItem(${jsArg(item.id)})">Delete</button>
+          </div>` : ""}
+      </div>
+    `;
+  }).join("");
+
+  return `
+    ${items.length ? `<div class="card">${rows}</div>`
+      : `<div class="card empty"><p>Nothing on the checklist yet. Add the phases and the jobs, and flag the ones that are real milestones.</p></div>`}
+    ${canAdd ? `<button class="btn-add" type="button" style="margin-top:10px" onclick="openNewChecklistItem()">+ Add a checklist item</button>` : ""}
+  `;
+}
+
+// ── Notes tab ────────────────────────────────────────────────────────────────
+function renderNotesTab(project) {
+  const items = notesOf(project.id);
+  const canAdd = canAddChild(project, ME);
+  const rows = items.map(note => `
+    <div class="list-item" data-testid="note-row" data-note-id="${esc(note.id)}">
+      <div class="list-body">
+        <div>${esc(note.body)}</div>
+        <div class="item-meta tiny">${esc(memberName(note.created_by))} · ${esc(fmtDate(String(note.created_at).slice(0, 10)))}</div>
+      </div>
+      ${canEditChild(note, project, ME) ? `
+        <button class="btn-quiet-danger" type="button" onclick="removeNote(${jsArg(note.id)})">Delete</button>` : ""}
+    </div>
+  `).join("");
+
+  return `
+    ${items.length ? `<div class="card">${rows}</div>`
+      : `<div class="card empty"><p>No decisions logged. This is the place for "we picked the matte tile, model 4471" — the detail nobody remembers three weeks later.</p></div>`}
+    ${canAdd ? `<button class="btn-add" type="button" style="margin-top:10px" onclick="openNewNote()">+ Log a decision</button>` : ""}
+  `;
+}
+
+// ── Photos tab ───────────────────────────────────────────────────────────────
+function renderPhotosTab(project) {
+  const ids = parseFileIds(project.file_ids);
+  const canEdit = canEditProject(project, ME);
+  const grid = ids.map(id => `
+    <div class="photo" data-testid="photo" data-file-id="${esc(id)}">
+      <img src="${esc(files.url(id))}" alt="Project photo" loading="lazy" />
+      ${canEdit ? `<button type="button" onclick="removePhoto(${jsArg(id)})">Remove</button>` : ""}
+    </div>
+  `).join("");
+
+  return `
+    ${ids.length ? `<div class="photo-grid">${grid}</div>`
+      : `<div class="card empty"><p>No photos yet. Before, during and after is the record you will actually want later.</p></div>`}
+    ${canEdit && window.__FILES_URL ? `
+      <div style="margin-top:12px">
+        <input type="file" id="photo-input" accept="image/*" onchange="uploadPhoto(this)" />
+        <p class="muted tiny" style="margin-top:6px">JPEG, PNG, WebP or HEIC.</p>
+      </div>` : ""}
+  `;
+}
+
+// ── Modal ────────────────────────────────────────────────────────────────────
+function openModal(html) {
+  closeModal();
+  modalEl = document.createElement("div");
+  modalEl.className = "modal-backdrop";
+  modalEl.innerHTML = `<div class="modal">${html}</div>`;
+  modalEl.addEventListener("click", e => { if (e.target === modalEl) closeModal(); });
+  document.body.appendChild(modalEl);
+}
+
+function closeModal() { modalEl?.remove(); modalEl = null; }
+
+function busy(label) {
+  const btn = modalEl?.querySelector(".modal-actions .btn-primary");
+  if (btn) { btn.disabled = true; btn.textContent = label; }
+  return btn;
+}
+
+function unbusy(btn, label) {
+  if (btn) { btn.disabled = false; btn.textContent = label; }
+}
+
+function field(id, label, input) {
+  return `<div class="field"><label for="${id}">${esc(label)}</label>${input}</div>`;
+}
+
+// ── Project create / edit ────────────────────────────────────────────────────
+function projectForm(project) {
+  const p = project ?? {};
+  return `
+    <h2>${project ? "Edit project" : "New project"}</h2>
+    <p class="modal-sub">${project ? "Change the plan as it changes." : "Name the thing, and add the money and the jobs as you learn them."}</p>
+    ${field("f-name", "Name", `<input id="f-name" value="${esc(p.name ?? "")}" placeholder="Bathroom renovation" />`)}
+    ${field("f-description", "What it covers", `<textarea id="f-description" placeholder="Optional">${esc(p.description ?? "")}</textarea>`)}
+    <div class="field-row">
+      ${field("f-status", "Status", `<select id="f-status">${STATUSES.map(s => `<option value="${esc(s)}"${(p.status ?? "planning") === s ? " selected" : ""}>${esc(STATUS_LABELS[s])}</option>`).join("")}</select>`)}
+      ${field("f-target", "Target date", `<input id="f-target" type="date" value="${esc(p.target_date ?? "")}" />`)}
+    </div>
+    <div class="field-row">
+      ${field("f-budget", "Budget (optional)", `<input id="f-budget" type="number" min="0" step="0.01" placeholder="0.00" value="${p.budget_cap_cents ? esc(centsInput(p.budget_cap_cents)) : ""}" />`)}
+      ${field("f-visibility", "Who can see it", `<select id="f-visibility">${Object.entries(VISIBILITY_LABELS).map(([v, l]) => `<option value="${esc(v)}"${(p.visibility ?? "adults") === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`)}
+    </div>
+    <div class="modal-actions">
+      ${project && canDeleteProject(project, ME) ? `<button class="btn btn-quiet-danger" type="button" onclick="removeProject()">Delete project</button>` : ""}
+      <button class="btn" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitProject(${project ? "true" : "false"})">${project ? "Save" : "Create project"}</button>
+    </div>
+  `;
+}
+
+function readProjectForm() {
+  const name = document.getElementById("f-name").value.trim();
+  if (!name) { document.getElementById("f-name").focus(); return null; }
+  const budgetRaw = document.getElementById("f-budget").value.trim();
+  let capCents = null;
+  if (budgetRaw !== "") {
+    capCents = toCents(budgetRaw);
+    if (!Number.isInteger(capCents) || capCents < 0) { document.getElementById("f-budget").focus(); return null; }
+  }
+  return {
+    name,
+    description: document.getElementById("f-description").value.trim(),
+    status: document.getElementById("f-status").value,
+    target_date: document.getElementById("f-target").value || null,
+    budget_cap_cents: capCents,
+    visibility: document.getElementById("f-visibility").value,
+  };
+}
+
+async function saveProject(isEdit) {
+  const fields = readProjectForm();
+  if (!fields) return;
+  const btn = busy(isEdit ? "Saving…" : "Creating…");
+  const now = nowIso();
+
+  try {
+    if (isEdit) {
+      const project = currentProject();
+      const wasDone = !!project.completed_at;
+      const nowDone = fields.status === "done";
+      const completedAt = nowDone ? (project.completed_at ?? now) : null;
+      await dbWrite(
+        `UPDATE app_projects__projects SET name = ?, description = ?, status = ?, visibility = ?,
+         target_date = ?, budget_cap_cents = ?, completed_at = ?, updated_at = ? WHERE id = ?`,
+        [fields.name, fields.description, fields.status, fields.visibility,
+         fields.target_date, fields.budget_cap_cents, completedAt, now, project.id],
+        "This project could not be saved.",
+      );
+      Object.assign(project, fields, { completed_at: completedAt, updated_at: now });
+      closeModal();
+      render();
+      if (!wasDone && nowDone && mayPublish(project)) {
+        const totals = budgetTotals(budgetOf(project.id));
+        publishEvent("project.completed", project.id, {
+          project_id: project.id, name: project.name, committed_cents: totals.committedCents,
+        });
+        if (mayLogActivity(project)) {
+          logHubActivity("project_completed", `${ME?.name ?? "Someone"} finished the project "${project.name}"`, project.id);
+        }
+      }
+    } else {
+      const project = {
+        id: uuid(), ...fields, file_ids: "[]",
+        created_by: ME?.id ?? "unknown", created_at: now, updated_at: now,
+        completed_at: fields.status === "done" ? now : null, source_event_id: null,
+      };
+      await db(
+        `INSERT INTO app_projects__projects
+           (id, name, description, status, visibility, target_date, budget_cap_cents, file_ids,
+            created_by, created_at, updated_at, completed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [project.id, project.name, project.description, project.status, project.visibility,
+         project.target_date, project.budget_cap_cents, project.file_ids,
+         project.created_by, project.created_at, project.updated_at, project.completed_at]
+      );
+      projects = [project, ...projects];
+      childrenLoaded.add(project.id);
+      closeModal();
+      openProject(project.id);
+      if (mayPublish(project)) {
+        publishEvent("project.created", project.id, {
+          project_id: project.id, name: project.name,
+          target_date: project.target_date, budget_cap_cents: project.budget_cap_cents,
+        });
+        if (mayLogActivity(project)) {
+          logHubActivity("project_created", `${ME?.name ?? "Someone"} started a project: "${project.name}"`, project.id);
+        }
+      }
+    }
+  } catch (e) {
+    unbusy(btn, isEdit ? "Save" : "Create project");
+    hubAlert(isEdit ? "Could not save this project." : "Could not create this project.", { description: e.message });
+  }
+}
+
+async function deleteProject() {
+  const project = currentProject();
+  if (!project || !canDeleteProject(project, ME)) return;
+  const ok = await hubConfirm({
+    message: `Delete "${project.name}"?`,
+    description: "Its budget, checklist and decisions go with it. This cannot be undone.",
+    confirmLabel: "Delete project",
+    destructive: true,
+  });
+  if (!ok) return;
+  try {
+    // ONE statement, deliberately. The manifest declares `delete_cascades` and
+    // `delete_file_list_columns` on this table, and the hub refuses a DELETE on
+    // such a table inside a batch rather than stranding the children — it needs
+    // to resolve the doomed ids per statement, which the batch form cannot do.
+    // So the children and the photos are not this app's job: the cascade takes
+    // budget items, checklist items, completions and decisions, and the
+    // declared file-list column reclaims the photos.
+    //
+    // Deleting the children here would have been wrong even if it ran: they are
+    // `inherit_visibility`, which scopes DELETE to the caller's own rows, so it
+    // could only ever have removed the line items this member happened to write.
+    await dbWrite(
+      "DELETE FROM app_projects__projects WHERE id = ?", [project.id],
+      "This project could not be deleted — it may already be gone.",
+    );
+    projects    = projects.filter(p => p.id !== project.id);
+    budget      = budget.filter(b => b.project_id !== project.id);
+    checklist   = checklist.filter(c => c.project_id !== project.id);
+    notes       = notes.filter(n => n.project_id !== project.id);
+    completions = completions.filter(x => x.project_id !== project.id);
+    reindexCompletions();
+    childrenLoaded.delete(project.id);
+    closeModal();
+    goBack();
+  } catch (e) {
+    hubAlert("Could not delete this project.", { description: e.message });
+  }
+}
+
+// ── Budget items ─────────────────────────────────────────────────────────────
+function budgetItemForm(item) {
+  const b = item ?? {};
+  return `
+    <h2>${item ? "Edit line item" : "New line item"}</h2>
+    <p class="modal-sub">Leave the actual blank until you know it — a zero would read as free.</p>
+    ${field("f-label", "Item", `<input id="f-label" value="${esc(b.label ?? "")}" placeholder="Floor tile" />`)}
+    ${field("f-vendor", "Who from", `<input id="f-vendor" value="${esc(b.vendor_name ?? "")}" placeholder="Optional" />`)}
+    <div class="field-row">
+      ${field("f-estimate", "Estimate", `<input id="f-estimate" type="number" min="0" step="0.01" placeholder="0.00" value="${esc(centsInput(b.estimated_cents ?? 0))}" />`)}
+      ${field("f-actual", "Actual", `<input id="f-actual" type="number" min="0" step="0.01" placeholder="Not yet known" value="${b.actual_cents !== null && b.actual_cents !== undefined ? esc(centsInput(b.actual_cents)) : ""}" />`)}
+    </div>
+    <div class="check-line" style="margin-bottom:4px">
+      <input type="checkbox" id="f-purchased"${Number(b.purchased) === 1 ? " checked" : ""} />
+      <label for="f-purchased">Bought / paid for</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitBudgetItem(${item ? jsArg(item.id) : "null"})">${item ? "Save" : "Add item"}</button>
+    </div>
+  `;
+}
+
+async function saveBudgetItem(itemId) {
+  const project = currentProject();
+  if (!project) return;
+  const label = document.getElementById("f-label").value.trim();
+  if (!label) { document.getElementById("f-label").focus(); return; }
+  const estimated = toCents(document.getElementById("f-estimate").value || "0");
+  if (!Number.isInteger(estimated) || estimated < 0) { document.getElementById("f-estimate").focus(); return; }
+  const actualRaw = document.getElementById("f-actual").value.trim();
+  let actual = null;
+  if (actualRaw !== "") {
+    actual = toCents(actualRaw);
+    if (!Number.isInteger(actual) || actual < 0) { document.getElementById("f-actual").focus(); return; }
+  }
+  const vendor = document.getElementById("f-vendor").value.trim();
+  const purchased = document.getElementById("f-purchased").checked ? 1 : 0;
+
+  const existing = itemId ? budget.find(b => b.id === itemId) : null;
+  const btn = busy(itemId ? "Saving…" : "Adding…");
+  const now = nowIso();
+
+  // Measured before the write, against the items as they stand without this one,
+  // so an edit is judged on its new value rather than its old one.
+  const others = budgetOf(project.id).filter(b => b.id !== itemId);
+  const added = actual !== null ? actual : estimated;
+  const crossed = crossesBudget(project, others, added);
+
+  try {
+    if (existing) {
+      await dbWrite(
+        `UPDATE app_projects__budget_items SET label = ?, vendor_name = ?, estimated_cents = ?,
+         actual_cents = ?, purchased = ?, updated_at = ? WHERE id = ?`,
+        [label, vendor, estimated, actual, purchased, now, itemId],
+        "Only whoever added this line item can change it.",
+      );
+      Object.assign(existing, { label, vendor_name: vendor, estimated_cents: estimated, actual_cents: actual, purchased, updated_at: now });
+    } else {
+      const sortOrder = budgetOf(project.id).length;
+      const item = {
+        id: uuid(), project_id: project.id, label, vendor_name: vendor,
+        estimated_cents: estimated, actual_cents: actual, purchased, sort_order: sortOrder,
+        created_by: ME?.id ?? "unknown", created_at: now, updated_at: now,
+      };
+      await db(
+        `INSERT INTO app_projects__budget_items
+           (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [item.id, item.project_id, item.label, item.vendor_name, item.estimated_cents,
+         item.actual_cents, item.purchased, item.sort_order, item.created_by, item.created_at, item.updated_at]
+      );
+      budget = [...budget, item];
+    }
+    closeModal();
+    render();
+    if (crossed && mayPublish(project)) {
+      const totals = budgetTotals(budgetOf(project.id));
+      publishEvent("project.budget_exceeded", project.id, {
+        project_id: project.id, name: project.name,
+        budget_cap_cents: project.budget_cap_cents, committed_cents: totals.committedCents,
+      });
+    }
+  } catch (e) {
+    unbusy(btn, itemId ? "Save" : "Add item");
+    hubAlert("Could not save this line item.", { description: e.message });
+  }
+}
+
+async function deleteBudgetItem(itemId) {
+  const project = currentProject();
+  const item = budget.find(b => b.id === itemId);
+  if (!project || !item) return;
+  const ok = await hubConfirm({
+    message: `Remove "${item.label}"?`, confirmLabel: "Remove", destructive: true,
+  });
+  if (!ok) return;
+  try {
+    await dbWrite("DELETE FROM app_projects__budget_items WHERE id = ?", [itemId],
+      "Only whoever added this line item can remove it.");
+    budget = budget.filter(b => b.id !== itemId);
+    render();
+  } catch (e) {
+    hubAlert("Could not remove this line item.", { description: e.message });
+  }
+}
+
+// ── Checklist items ──────────────────────────────────────────────────────────
+function checklistItemForm(item) {
+  const c = item ?? {};
+  return `
+    <h2>${item ? "Edit item" : "New checklist item"}</h2>
+    <p class="modal-sub">Assigning someone puts it on their own task list too, if the automation is switched on.</p>
+    ${field("f-title", "What needs doing", `<input id="f-title" value="${esc(c.title ?? "")}" placeholder="Choose grout colour" />`)}
+    <div class="field-row">
+      ${field("f-due", "Due", `<input id="f-due" type="date" value="${esc(c.due_date ?? "")}" />`)}
+      ${field("f-assignee", "Who", `<select id="f-assignee"><option value="">Nobody yet</option>${members.map(m => `<option value="${esc(m.id)}"${c.assignee_id === m.id ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>`)}
+    </div>
+    <div class="check-line" style="margin-bottom:4px">
+      <input type="checkbox" id="f-milestone"${Number(c.is_milestone) === 1 ? " checked" : ""} />
+      <label for="f-milestone">This is a milestone, not a chore</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitChecklistItem(${item ? jsArg(item.id) : "null"})">${item ? "Save" : "Add item"}</button>
+    </div>
+  `;
+}
+
+async function saveChecklistItem(itemId) {
+  const project = currentProject();
+  if (!project) return;
+  const title = document.getElementById("f-title").value.trim();
+  if (!title) { document.getElementById("f-title").focus(); return; }
+  const dueDate = document.getElementById("f-due").value || null;
+  const assigneeId = document.getElementById("f-assignee").value || null;
+  const isMilestone = document.getElementById("f-milestone").checked ? 1 : 0;
+
+  const existing = itemId ? checklist.find(c => c.id === itemId) : null;
+  const previousAssignee = existing?.assignee_id ?? null;
+  const btn = busy(itemId ? "Saving…" : "Adding…");
+  const now = nowIso();
+  let savedId = itemId;
+
+  try {
+    if (existing) {
+      await dbWrite(
+        `UPDATE app_projects__checklist_items SET title = ?, due_date = ?, assignee_id = ?,
+         is_milestone = ?, updated_at = ? WHERE id = ?`,
+        [title, dueDate, assigneeId, isMilestone, now, itemId],
+        "Only whoever added this item can change it.",
+      );
+      Object.assign(existing, { title, due_date: dueDate, assignee_id: assigneeId, is_milestone: isMilestone, updated_at: now });
+    } else {
+      const item = {
+        id: uuid(), project_id: project.id, title, due_date: dueDate, assignee_id: assigneeId,
+        is_milestone: isMilestone, sort_order: checklistOf(project.id).length,
+        created_by: ME?.id ?? "unknown", created_at: now, updated_at: now,
+      };
+      await db(
+        `INSERT INTO app_projects__checklist_items
+           (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [item.id, item.project_id, item.title, item.due_date, item.assignee_id,
+         item.is_milestone, item.sort_order, item.created_by, item.created_at, item.updated_at]
+      );
+      checklist = [...checklist, item];
+      savedId = item.id;
+    }
+    closeModal();
+    render();
+    // Only a NEW assignment is announced. Republishing on every later edit
+    // would hand the assignee a duplicate task each time the title changed.
+    if (assigneeId && assigneeId !== previousAssignee && mayPublish(project)) {
+      publishEvent("project.task_assigned", savedId, {
+        project_id: project.id, project_name: project.name,
+        title, assignee_id: assigneeId, due_date: dueDate,
+      });
+    }
+  } catch (e) {
+    unbusy(btn, itemId ? "Save" : "Add item");
+    hubAlert("Could not save this item.", { description: e.message });
+  }
+}
+
+/**
+ * Ticking an item off INSERTs a completion the ticker owns; un-ticking DELETEs
+ * it. Anyone who can see the project may close an item — which is what lets the
+ * assignee close the one that was given to them — and only whoever closed it
+ * can reopen it.
+ */
+async function toggleChecklist(itemId) {
+  const project = currentProject();
+  const item = checklist.find(c => c.id === itemId);
+  if (!project || !item) return;
+  const existing = completionOf(item, doneByItem);
+
+  if (existing) {
+    if (!canUncompleteItem(existing, project, ME)) {
+      error = `Only ${memberName(existing.done_by)} can reopen this — they are the one who closed it.`;
+      render();
+      return;
+    }
+    try {
+      await dbWrite(
+        "DELETE FROM app_projects__checklist_completions WHERE id = ?", [existing.id],
+        "This item could not be reopened.",
+      );
+      completions = completions.filter(x => x.id !== existing.id);
+      reindexCompletions();
+      render();
+    } catch (e) {
+      hubAlert("Could not reopen this item.", { description: e.message });
+    }
+    return;
+  }
+
+  if (!canCompleteItem(project, ME)) {
+    error = "You cannot tick off items on this project.";
+    render();
+    return;
+  }
+  const now = nowIso();
+  const completion = {
+    id: uuid(), project_id: project.id, item_id: item.id,
+    done_by: ME?.id ?? "unknown", done_at: now,
+  };
+  try {
+    await dbWrite(
+      `INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [completion.id, completion.project_id, completion.item_id, completion.done_by, completion.done_at],
+      "This item could not be ticked off.",
+    );
+    completions = [...completions, completion];
+    reindexCompletions();
+    render();
+    if (Number(item.is_milestone) === 1 && mayPublish(project)) {
+      publishEvent("project.milestone_reached", project.id, {
+        project_id: project.id, project_name: project.name, title: item.title,
+      });
+      if (mayLogActivity(project)) {
+        logHubActivity("project_milestone", `${ME?.name ?? "Someone"} hit a milestone on "${project.name}": ${item.title}`, project.id);
+      }
+    }
+  } catch (e) {
+    hubAlert("Could not tick off this item.", { description: e.message });
+  }
+}
+
+async function deleteChecklistItem(itemId) {
+  const item = checklist.find(c => c.id === itemId);
+  if (!item) return;
+  const ok = await hubConfirm({ message: `Remove "${item.title}"?`, confirmLabel: "Remove", destructive: true });
+  if (!ok) return;
+  try {
+    await dbWrite(
+      "DELETE FROM app_projects__checklist_items WHERE id = ?", [itemId],
+      "Only whoever added this item can remove it.",
+    );
+    checklist = checklist.filter(c => c.id !== itemId);
+    // The row's completion goes with it in the database (ON DELETE CASCADE);
+    // drop it here so the screen agrees without a refetch.
+    completions = completions.filter(x => x.item_id !== itemId);
+    reindexCompletions();
+    render();
+  } catch (e) {
+    hubAlert("Could not remove this item.", { description: e.message });
+  }
+}
+
+// ── Notes ────────────────────────────────────────────────────────────────────
+function noteForm() {
+  return `
+    <h2>Log a decision</h2>
+    <p class="modal-sub">What you chose, and why — the reason is the part that gets lost.</p>
+    ${field("f-body", "Decision", `<textarea id="f-body" placeholder="Went with the matte tile (model 4471), not the gloss — less slippery underfoot."></textarea>`)}
+    <div class="modal-actions">
+      <button class="btn" type="button" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" type="button" onclick="submitNote()">Log it</button>
+    </div>
+  `;
+}
+
+async function saveNote() {
+  const project = currentProject();
+  if (!project) return;
+  const body = document.getElementById("f-body").value.trim();
+  if (!body) { document.getElementById("f-body").focus(); return; }
+  const btn = busy("Saving…");
+  const now = nowIso();
+  const note = { id: uuid(), project_id: project.id, body, created_by: ME?.id ?? "unknown", created_at: now };
+  try {
+    await db(
+      "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
+      [note.id, note.project_id, note.body, note.created_by, note.created_at]
+    );
+    notes = [note, ...notes];
+    closeModal();
+    render();
+  } catch (e) {
+    unbusy(btn, "Log it");
+    hubAlert("Could not save this note.", { description: e.message });
+  }
+}
+
+async function deleteNote(noteId) {
+  const ok = await hubConfirm({ message: "Delete this decision?", confirmLabel: "Delete", destructive: true });
+  if (!ok) return;
+  try {
+    await dbWrite("DELETE FROM app_projects__notes WHERE id = ?", [noteId],
+      "Only whoever logged this decision can delete it.");
+    notes = notes.filter(n => n.id !== noteId);
+    render();
+  } catch (e) {
+    hubAlert("Could not delete this note.", { description: e.message });
+  }
+}
+
+// ── Photos ───────────────────────────────────────────────────────────────────
+async function addPhoto(input) {
+  const project = currentProject();
+  const file = input?.files?.[0];
+  if (!project || !file) return;
+  input.disabled = true;
+  try {
+    // The DB row is only written once the upload has really resolved — a failed
+    // upload must not leave an id in file_ids pointing at nothing.
+    const { id: fileId } = await files.upload(file);
+    const ids = [...parseFileIds(project.file_ids), fileId];
+    const next = JSON.stringify(ids);
+    await dbWrite("UPDATE app_projects__projects SET file_ids = ?, updated_at = ? WHERE id = ?",
+      [next, nowIso(), project.id], "This photo could not be attached.");
+    project.file_ids = next;
+    render();
+  } catch (e) {
+    input.disabled = false;
+    hubAlert("Could not add this photo.", { description: e.message });
+  }
+}
+
+async function deletePhoto(fileId) {
+  const project = currentProject();
+  if (!project) return;
+  const ok = await hubConfirm({ message: "Remove this photo?", confirmLabel: "Remove", destructive: true });
+  if (!ok) return;
+  const next = JSON.stringify(parseFileIds(project.file_ids).filter(id => id !== fileId));
+  try {
+    // `update_file_list_columns` on this column means the hub reclaims the file
+    // the moment the UPDATE unlinks it — no client-side delete needed.
+    await dbWrite("UPDATE app_projects__projects SET file_ids = ?, updated_at = ? WHERE id = ?",
+      [next, nowIso(), project.id], "This photo could not be removed.");
+    project.file_ids = next;
+    render();
+  } catch (e) {
+    hubAlert("Could not remove this photo.", { description: e.message });
+  }
+}
+
+// ── Window bridge ────────────────────────────────────────────────────────────
+// Inline `on*=` attributes are compiled in GLOBAL scope; everything above is
+// module-scoped, so each handler needs an explicit assignment here or it throws
+// ReferenceError on the first click. build.mjs fails the build if one is missed.
+window.closeModal = closeModal;
+window.goBackToList = goBack;
+window.openProjectById = function(id) { openProject(id); };
+window.setTab = function(tab) { currentTab = tab; render(); };
+
+window.openNewProject = function() {
+  openModal(projectForm(null));
+  setTimeout(() => document.getElementById("f-name")?.focus(), 50);
+};
+window.openEditProject = function() {
+  const project = currentProject();
+  if (!project || !canEditProject(project, ME)) return;
+  openModal(projectForm(project));
+};
+window.submitProject = function(isEdit) { saveProject(isEdit); };
+window.removeProject = function() { deleteProject(); };
+
+window.openNewBudgetItem = function() {
+  openModal(budgetItemForm(null));
+  setTimeout(() => document.getElementById("f-label")?.focus(), 50);
+};
+window.openEditBudgetItem = function(id) {
+  const item = budget.find(b => b.id === id);
+  if (item) openModal(budgetItemForm(item));
+};
+window.submitBudgetItem = function(id) { saveBudgetItem(id); };
+window.removeBudgetItem = function(id) { deleteBudgetItem(id); };
+
+window.openNewChecklistItem = function() {
+  openModal(checklistItemForm(null));
+  setTimeout(() => document.getElementById("f-title")?.focus(), 50);
+};
+window.openEditChecklistItem = function(id) {
+  const item = checklist.find(c => c.id === id);
+  if (item) openModal(checklistItemForm(item));
+};
+window.submitChecklistItem = function(id) { saveChecklistItem(id); };
+window.toggleChecklistItem = function(id) { toggleChecklist(id); };
+window.removeChecklistItem = function(id) { deleteChecklistItem(id); };
+
+window.openNewNote = function() {
+  openModal(noteForm());
+  setTimeout(() => document.getElementById("f-body")?.focus(), 50);
+};
+window.submitNote = function() { saveNote(); };
+window.removeNote = function(id) { deleteNote(id); };
+
+window.uploadPhoto = function(input) { addPhoto(input); };
+window.removePhoto = function(id) { deletePhoto(id); };
+
+// ── Events ───────────────────────────────────────────────────────────────────
+// Re-render only the list on each keystroke so the search box keeps focus.
+document.addEventListener("input", (event) => {
+  if (event.target.id !== "search") return;
+  searchQ = event.target.value;
+  const list = document.getElementById("project-list");
+  if (list) list.innerHTML = renderProjectList();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && modalEl) closeModal();
+});
+
+function handleDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const projectId = params.get("projectId");
+  if (projectId && projects.some(p => p.id === projectId)) openProject(projectId);
+}
+
+(async () => {
+  await refresh();
+  handleDeepLink();
+})();
+</script>
+</body>
+</html>

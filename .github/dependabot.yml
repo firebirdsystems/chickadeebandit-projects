@@ -1,0 +1,12 @@
+version: 2
+
+# Keeps the SHA-pinned actions in release.yml current — pinning away from
+# mutable tags trades a supply-chain risk for a staleness risk without this.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

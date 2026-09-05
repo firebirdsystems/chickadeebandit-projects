@@ -1,0 +1,187 @@
+{
+  "id": "projects",
+  "name": "Projects",
+  "version": "1.0.0",
+  "description": "Plan a project — a renovation, a move, a big purchase — in one place: a budget of estimated-versus-actual line items, a checklist with deadlines and milestones, photos of how it went, and a log of what you decided and why.",
+  "entrypoint": "index.html",
+  "runtime": "static",
+  "category": "general",
+  "tags": ["projects", "budget", "renovation", "planning", "checklist", "home"],
+  "icon": "🔨",
+  "nav": { "label": "Projects" },
+  "contexts": ["household"],
+  "data_access": {
+    "reads": ["family.members"],
+    "writes": []
+  },
+  "permissions": {
+    "default_audience": "everyone",
+    "requires_approval": false
+  },
+  "storage": "db",
+  "preload": {
+    "projects": { "sql": "SELECT * FROM app_projects__projects ORDER BY (completed_at IS NULL) DESC, (target_date IS NULL), target_date, created_at LIMIT 100" },
+    "budget": { "sql": "SELECT b.* FROM app_projects__budget_items b JOIN app_projects__projects p ON p.id = b.project_id WHERE p.completed_at IS NULL ORDER BY b.project_id, b.sort_order, b.created_at LIMIT 500" },
+    "checklist": { "sql": "SELECT c.* FROM app_projects__checklist_items c JOIN app_projects__projects p ON p.id = c.project_id WHERE p.completed_at IS NULL ORDER BY c.project_id, c.sort_order, c.created_at LIMIT 500" },
+    "notes": { "sql": "SELECT n.* FROM app_projects__notes n JOIN app_projects__projects p ON p.id = n.project_id WHERE p.completed_at IS NULL ORDER BY n.project_id, n.created_at DESC LIMIT 200" },
+    "completions": { "sql": "SELECT x.* FROM app_projects__checklist_completions x JOIN app_projects__projects p ON p.id = x.project_id WHERE p.completed_at IS NULL ORDER BY x.project_id, x.done_at LIMIT 500" }
+  },
+  "row_policies": {
+    "projects": {
+      "kind": "owner_or_visibility",
+      "member_column": "created_by",
+      "visibility_column": "visibility",
+      "everyone_values": ["everyone"],
+      "adult_values": ["adults"],
+      "write_visibility_scoped": true,
+      "delete_adult_only": true,
+      "column_write_acls": {
+        "created_by": { "writable_by": [], "actions": ["update"] },
+        "created_at": { "writable_by": [], "actions": ["update"] },
+        "visibility": { "writable_by": ["owner"], "actions": ["update"] }
+      },
+      "max_rows": 500
+    },
+    "budget_items": {
+      "kind": "inherit_visibility",
+      "fk_column": "project_id",
+      "parent_table": "projects",
+      "writer_column": "created_by",
+      "max_rows": 20000
+    },
+    "checklist_items": {
+      "kind": "inherit_visibility",
+      "fk_column": "project_id",
+      "parent_table": "projects",
+      "writer_column": "created_by",
+      "max_rows": 20000
+    },
+    "checklist_completions": {
+      "kind": "inherit_visibility",
+      "fk_column": "project_id",
+      "parent_table": "projects",
+      "writer_column": "done_by",
+      "max_rows": 20000
+    },
+    "notes": {
+      "kind": "inherit_visibility",
+      "fk_column": "project_id",
+      "parent_table": "projects",
+      "writer_column": "created_by",
+      "max_rows": 20000
+    }
+  },
+  "member_references": {
+    "projects": {
+      "column": "created_by",
+      "on_removed": "delete",
+      "only_when": { "column": "visibility", "values": ["private"] }
+    },
+    "budget_items": { "column": "created_by", "on_removed": "keep" },
+    "checklist_items": [
+      { "column": "assignee_id", "on_removed": "null" },
+      { "column": "created_by", "on_removed": "keep" }
+    ],
+    "checklist_completions": { "column": "done_by", "on_removed": "keep" },
+    "notes": { "column": "created_by", "on_removed": "keep" }
+  },
+  "delete_cascades": {
+    "projects": [
+      { "table": "budget_items", "foreign_key": "project_id" },
+      { "table": "checklist_items", "foreign_key": "project_id" },
+      { "table": "checklist_completions", "foreign_key": "project_id" },
+      { "table": "notes", "foreign_key": "project_id" }
+    ]
+  },
+  "delete_file_list_columns": { "projects": ["file_ids"] },
+  "update_file_list_columns": { "projects": ["file_ids"] },
+  "agenda": {
+    "kind": "task",
+    "label": "Project",
+    "source": {
+      "kind": "sql",
+      "query": "SELECT c.id AS id, c.title AS title, p.name AS subtitle, c.due_date AS when_at, c.assignee_id AS member_id, CASE WHEN x.id IS NULL THEN 0 ELSE 1 END AS done FROM app_projects__checklist_items c JOIN app_projects__projects p ON p.id = c.project_id LEFT JOIN app_projects__checklist_completions x ON x.item_id = c.id WHERE c.due_date = :today LIMIT 20"
+    }
+  },
+  "glance": {
+    "source": {
+      "kind": "sql",
+      "query": "SELECT name AS title, NULLIF(description, '') AS subtitle, target_date AS at FROM app_projects__projects WHERE completed_at IS NULL AND target_date IS NOT NULL ORDER BY target_date LIMIT 3"
+    },
+    "display": {
+      "template": "list",
+      "title": "title",
+      "subtitle": "subtitle",
+      "when": "at"
+    },
+    "ambient_card": "countdown"
+  },
+  "publishes": [
+    "project.created",
+    "project.task_assigned",
+    "project.milestone_reached",
+    "project.budget_exceeded",
+    "project.completed"
+  ],
+  "publish_acls": {
+    "project.created": { "require_role": "member" },
+    "project.task_assigned": { "require_role": "member" },
+    "project.milestone_reached": { "require_role": "member" },
+    "project.budget_exceeded": { "require_role": "member" },
+    "project.completed": { "require_role": "member" }
+  },
+  "automation_actions": {
+    "create_project": {
+      "title": "Start a project",
+      "description": "Open a project when another app's event fires — a reserve-fund line item planned, a maintenance request that turned into real work — so the budget and the checklist have somewhere to live from day one.",
+      "params": {
+        "name": { "type": "text", "label": "Project name", "required": true },
+        "description": { "type": "text", "label": "What it covers", "default": "" },
+        "budget_cap_cents": { "type": "integer", "label": "Budget in cents", "default": 0 }
+      },
+      "dedupe": { "table": "projects", "column": "source_event_id" },
+      "steps": [
+        {
+          "op": "insert",
+          "table": "projects",
+          "values": {
+            "id": "$uuid",
+            "name": ":name",
+            "description": ":description",
+            "budget_cap_cents": ":budget_cap_cents",
+            "status": "planning",
+            "visibility": "adults",
+            "file_ids": "[]",
+            "created_by": "automation",
+            "created_at": "$now",
+            "updated_at": "$now",
+            "source_event_id": "$event_id"
+          }
+        }
+      ]
+    }
+  },
+  "suggested_automations": [
+    {
+      "title": "Turn a planned reserve-fund project into a real one",
+      "description": "When the reserve fund plans a project, open it here with its estimated cost already set as the budget — ready for line items, a checklist, and the quotes that come back.",
+      "trigger_event": "reserve_fund.project_planned",
+      "target_app_id": "projects",
+      "action_id": "create_project",
+      "param_map": {
+        "name": { "kind": "payload_field", "value": "name" },
+        "budget_cap_cents": { "kind": "payload_field", "value": "estimated_cost_cents" }
+      }
+    }
+  ],
+  "ai_access": {
+    "allowed": true,
+    "mode": "read",
+    "db_exports": ["active_projects", "budget_summary"]
+  },
+  "resource_limits": {
+    "max_db_bytes": 52428800,
+    "max_file_bytes": 20971520,
+    "max_files_bytes": 1073741824
+  }
+}

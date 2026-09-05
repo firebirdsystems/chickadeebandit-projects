@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Gate: validate this app against the hub's manifest/migration/ai_access
+  # contract before it can build or publish. Public repos can't call a private
+  # repo's reusable workflow, so we run the hub's validators directly — installing
+  # only the tiny standalone runner (vitest + better-sqlite3), NOT the full hub
+  # monorepo. See firebirdsystems/chickadeebandit packages/hub/contract-ci.
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this app
+        uses: actions/checkout@v4
+        with:
+          path: app-src/app
+          persist-credentials: false
+      - name: Check out hub (validators — private repo, via token)
+        uses: actions/checkout@v4
+        with:
+          repository: firebirdsystems/chickadeebandit
+          token: ${{ secrets.HUB_CHECKOUT_TOKEN }}
+          path: hub
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install contract runner (vitest + better-sqlite3 only)
+        working-directory: hub/packages/hub/contract-ci
+        run: npm ci --no-audit --no-fund
+      - name: Run app contract suite
+        working-directory: hub/packages/hub/contract-ci
+        env:
+          CB_APPS_DIR: ${{ github.workspace }}/app-src
+        run: npm run contract
+
+  build-and-release:
+    needs: contract
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set version
+        id: version
+        run: |
+          VERSION="1.0.${{ github.run_number }}"
+          jq --arg v "$VERSION" '.version = $v' manifest.json > manifest.tmp.json
+          mv manifest.tmp.json manifest.json
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build bundle
+        run: node build.mjs
+
+      - name: Compute bundle hash
+        id: hash
+        run: |
+          HASH=$(sha256sum dist/bundle.json | cut -d' ' -f1)
+          echo "sha256=$HASH" >> $GITHUB_OUTPUT
+          echo "bundle.json SHA-256: $HASH"
+
+      - name: Create or update release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          files: dist/bundle.json
+          generate_release_notes: true
+          body: |
+            **bundle.json SHA-256:** `${{ steps.hash.outputs.sha256 }}`
+            Update `catalog.json` in the hub repo with this hash.
