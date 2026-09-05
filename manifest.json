@@ -36,8 +36,10 @@
       "write_visibility_scoped": true,
       "delete_adult_only": true,
       "column_write_acls": {
+        "id": { "writable_by": [], "actions": ["update"] },
         "created_by": { "writable_by": [], "actions": ["update"] },
         "created_at": { "writable_by": [], "actions": ["update"] },
+        "source_event_id": { "writable_by": [], "actions": ["update"] },
         "visibility": { "writable_by": ["owner"], "actions": ["update"] }
       },
       "max_rows": 500
@@ -47,6 +49,14 @@
       "fk_column": "project_id",
       "parent_table": "projects",
       "writer_column": "created_by",
+      "adults_bypass": true,
+      "column_write_acls": {
+        "id": { "writable_by": [], "actions": ["update"] },
+        "project_id": { "writable_by": [], "actions": ["update"] },
+        "created_by": { "writable_by": [], "actions": ["update"] },
+        "created_at": { "writable_by": [], "actions": ["update"] },
+        "sort_order": { "writable_by": [], "actions": ["update"] }
+      },
       "max_rows": 20000
     },
     "checklist_items": {
@@ -54,6 +64,14 @@
       "fk_column": "project_id",
       "parent_table": "projects",
       "writer_column": "created_by",
+      "adults_bypass": true,
+      "column_write_acls": {
+        "id": { "writable_by": [], "actions": ["update"] },
+        "project_id": { "writable_by": [], "actions": ["update"] },
+        "created_by": { "writable_by": [], "actions": ["update"] },
+        "created_at": { "writable_by": [], "actions": ["update"] },
+        "sort_order": { "writable_by": [], "actions": ["update"] }
+      },
       "max_rows": 20000
     },
     "checklist_completions": {
@@ -61,6 +79,14 @@
       "fk_column": "project_id",
       "parent_table": "projects",
       "writer_column": "done_by",
+      "adults_bypass": true,
+      "column_write_acls": {
+        "id": { "writable_by": [], "actions": ["update"] },
+        "project_id": { "writable_by": [], "actions": ["update"] },
+        "item_id": { "writable_by": [], "actions": ["update"] },
+        "done_by": { "writable_by": [], "actions": ["update"] },
+        "done_at": { "writable_by": [], "actions": ["update"] }
+      },
       "max_rows": 20000
     },
     "notes": {
@@ -68,6 +94,14 @@
       "fk_column": "project_id",
       "parent_table": "projects",
       "writer_column": "created_by",
+      "adults_bypass": true,
+      "column_write_acls": {
+        "id": { "writable_by": [], "actions": ["update"] },
+        "project_id": { "writable_by": [], "actions": ["update"] },
+        "body": { "writable_by": [], "actions": ["update"] },
+        "created_by": { "writable_by": [], "actions": ["update"] },
+        "created_at": { "writable_by": [], "actions": ["update"] }
+      },
       "max_rows": 20000
     }
   },

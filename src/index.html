@@ -174,9 +174,16 @@ import {
 import {
   STATUSES, STATUS_LABELS, VISIBILITY_LABELS,
   toCents, fmtDollars, centsInput,
-  budgetTotals, budgetStatus, crossesBudget, itemsAfterSave,
-  checklistProgress, sortChecklist, isOverdue,
+  summaryFromRows, summaryFromAggregates, applyDelta, committedOf,
+  budgetStatusFrom, progressFrom, crossedCap, navigationGate,
+  sortChecklist, isOverdue,
   completionIndex, completionOf,
+  mayPublish, assignableMembers,
+  writeOrThrow, rewriteFileIds, parseFileIds, publishBestEffort,
+  toggleDecision, announcedMilestoneIds,
+  chunk, D1_MAX_BINDS, CHILD_ORDERS, cursorFrom, keysetClause,
+  mergeById, mergeSorted, compareBudgetRows, compareNoteRows, compareProjectRows,
+  shouldRepaint, loadProjectTail,
   canSeeProject, canEditProject, canDeleteProject, canAddChild, canEditChild,
   canCompleteItem, canUncompleteItem, visibilityChoicesFor, isUndeletableWhilePrivate,
   searchableFields,
@@ -216,6 +223,36 @@ const LOCAL_READS = {
   "completions": "SELECT x.* FROM app_projects__checklist_completions x JOIN app_projects__projects p ON p.id = x.project_id WHERE p.completed_at IS NULL ORDER BY x.project_id, x.done_at LIMIT 500"
 };
 
+/**
+ * The three aggregate reads behind every stated total.
+ *
+ * Every number this app states as a fact — the committed spend, "3/7 done", the
+ * tab counts, and the `committed_cents` it publishes on project.completed and
+ * project.budget_exceeded — comes from here rather than from the rows on
+ * screen. The rows on screen are one page: the child reads cap at 200 per tab,
+ * the preload caps across the whole household, and a finished project's
+ * children are not preloaded at all. Counting those rows understated every one
+ * of those numbers with nothing to say so.
+ *
+ * Grouped over the household rather than fetched per project: one round trip
+ * settles every card in the list, including the finished projects whose rows
+ * are never loaded at all. They are deliberately NOT preloads — the manifest is
+ * at its six-statement ceiling, and the first paint does not need them.
+ *
+ * `committed_cents` mirrors `budgetTotals` exactly: the real price where one is
+ * known, the estimate elsewhere. Both columns are INTEGER cents, so they are
+ * plaintext and SUM-able — a TEXT column here would be ciphertext and would sum
+ * to nothing, in silence.
+ *
+ * They count rows THIS VIEWER may see: row policies rewrite these like any
+ * other read, so an adults-only project's spend is not counted for a child.
+ */
+const SUMMARY_READS = {
+  budget: "SELECT project_id, COUNT(*) AS line_items, COALESCE(SUM(COALESCE(actual_cents, estimated_cents)), 0) AS committed_cents, COALESCE(SUM(estimated_cents), 0) AS estimated_cents FROM app_projects__budget_items GROUP BY project_id",
+  checklist: "SELECT c.project_id AS project_id, COUNT(*) AS items, COUNT(x.id) AS done FROM app_projects__checklist_items c LEFT JOIN app_projects__checklist_completions x ON x.item_id = c.id GROUP BY c.project_id",
+  notes: "SELECT project_id, COUNT(*) AS notes FROM app_projects__notes GROUP BY project_id",
+};
+
 /** Every preload's row cap, keyed the same way. A result that comes back at its
  *  cap was TRUNCATED, and the projects past the cut have no children loaded —
  *  see loadProjects. */
@@ -223,6 +260,10 @@ const READ_LIMITS = { projects: 100, budget: 500, checklist: 500, notes: 200, co
 
 // ── App state ────────────────────────────────────────────────────────────────
 let members = [];
+/** Whether the roster fetch has settled. First paint deliberately does not wait
+ *  on it, so a form opened in that window must not mistake an EMPTY roster for
+ *  a roster with nobody in it. */
+let membersLoaded = false;
 let memberMap = new Map();
 let projects = [];
 let budget = [];
@@ -240,12 +281,76 @@ let modalEl = null;
 // OPEN projects, so opening a finished one fetches its rows once.
 const childrenLoaded = new Set();
 
+/**
+ * projectId → its EXACT child totals, in two layers.
+ *
+ * `summaries` holds what this session knows for certain about one project: the
+ * preload covered it in full, or a write moved a total we already held. The
+ * aggregate maps under it answer for every OTHER project once the household-
+ * wide read lands — including, importantly, the projects that have no children
+ * at all, which appear in no aggregate row and are a real zero rather than an
+ * unknown.
+ *
+ * Before that read lands there is no answer, and "no answer" is rendered as
+ * nothing at all — never as a zero. An understated total is the failure this
+ * whole arrangement exists to prevent, and a confident "$0 of $12,000" on a
+ * project mid-renovation is the worst version of it.
+ */
+const summaries = new Map();
+const aggregates = { loaded: false, budget: new Map(), checklist: new Map(), notes: new Map() };
+
+function summaryOf(projectId) {
+  const known = summaries.get(projectId);
+  if (known) return known;
+  if (!aggregates.loaded) return null;
+  return summaryFromAggregates(
+    aggregates.budget.get(projectId),
+    aggregates.checklist.get(projectId),
+    aggregates.notes.get(projectId),
+  );
+}
+
+/** Move a total on by a write we just made. An exact base plus the exact delta
+ *  of our own write is still exact, which is what saves a round trip per tick.
+ *  An unknown base stays unknown — see `applyDelta`. */
+function updateSummary(projectId, delta) {
+  const next = applyDelta(summaryOf(projectId), delta);
+  if (next) summaries.set(projectId, next);
+}
+
+/** Navigation identity, so a slower open cannot land on top of a faster one. */
+const nav = navigationGate();
+
 /** Checklist items with a tick/untick write in flight — see toggleChecklist. */
 const togglesInFlight = new Set();
 
 /** Milestone items whose `project.milestone_reached` has already gone out this
  *  session, so a mis-tick and its correction don't announce it twice. */
 const announcedMilestones = new Set();
+
+/**
+ * Seed it from the completions on hand, on every load.
+ *
+ * The set alone was session-scoped, so a reload emptied it and the next
+ * reopen-and-re-tick republished `project.milestone_reached` — re-running every
+ * subscribed automation. Seeding means a milestone that is ALREADY closed is
+ * never announced again, which is the case that actually recurs.
+ *
+ * What this still cannot see is a milestone deliberately reopened in one
+ * session and re-closed in a later one: by then its completion row is genuinely
+ * gone, and a second close is arguably a second event. Closing that gap needs a
+ * durable per-item marker, and the only row that could carry one is the item,
+ * which the person ticking it off may not write.
+ */
+function seedAnnouncedMilestones({ reset = true } = {}) {
+  // `reset` only on a full refresh. An incremental load — another project's
+  // children, or the next checklist page — must UNION: clearing would forget
+  // that a milestone was already announced earlier in this session, so
+  // reopening it and re-ticking would publish `project.milestone_reached` a
+  // second time and re-run every subscribed automation.
+  if (reset) announcedMilestones.clear();
+  for (const id of announcedMilestoneIds(checklist, completions)) announcedMilestones.add(id);
+}
 
 function nowIso() { return new Date().toISOString(); }
 function uuid() { return crypto.randomUUID(); }
@@ -262,12 +367,6 @@ function fmtDate(value) {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function parseFileIds(value) {
-  try {
-    const parsed = JSON.parse(value ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter(id => typeof id === "string") : [];
-  } catch { return []; }
-}
 
 /**
  * Children of a project, grouped once per version of each child array.
@@ -331,9 +430,6 @@ function doneIndex() {
  *  member, which is exactly how the hub will judge it too. */
 function isOwner(project) { return !!ME && project?.created_by === ME.id; }
 
-/** A private project never reaches the cross-app bus or the household feed —
- *  both are read by people who cannot open the project itself. */
-function mayPublish(project)  { return !!project && project.visibility !== "private"; }
 function mayLogActivity(project) { return !!project && project.visibility === "everyone"; }
 
 // ── DB ───────────────────────────────────────────────────────────────────────
@@ -351,25 +447,26 @@ const events = createEventsHelper(EVENTS, APP_ID);
  * success would update the screen and let the change evaporate on next load.
  * Every write below goes through this rather than `db` directly.
  */
-async function dbWrite(sql, params, refusal) {
-  // Demo mode has no endpoint, so every statement reports nothing changed. That
-  // is not a refusal, and treating it as one turned each demo tick, edit and
-  // delete into an error dialog — the one thing a demo must never do. The local
-  // state update the caller does next is the whole write here.
-  if (!DB) return { rows: [], changed: 1 };
-  const res = await db(sql, params);
-  if (Number(res.changed ?? 0) === 0) throw new Error(refusal);
-  return res;
-}
+const dbWrite = (sql, params, refusal) =>
+  writeOrThrow(db, { sql, params, refusal, live: !!DB });
 
 // ── Side effects (best-effort; the row is already written) ────────────────────
 /** The app's (type, subject, payload) order over the SDK's publish, which takes
  *  the payload second. The SDK reports a catalog/schema rejection to the console
  *  instead of swallowing it: a mis-shaped payload used to publish nothing and
  *  tell nobody. */
-function publishEvent(type, subjectId, payload = {}) {
-  events.publish(type, payload, subjectId);
-}
+/**
+ * Publishing is best-effort, but the promise may not be dropped on the floor:
+ * `events.publish` awaits a bare `fetch`, so a network failure REJECTS, and a
+ * discarded rejection is an unhandled one. Dropping it also let navigation
+ * cancel the request after the row was already written, leaving the database
+ * and the bus disagreeing with nothing logged anywhere.
+ *
+ * Callers `await` this. It never rejects, so nothing downstream has to guard.
+ */
+const publishEvent = (type, subjectId, payload = {}) =>
+  publishBestEffort(events, type, subjectId, payload,
+    (msg, e) => console.warn(`[projects] ${msg}:`, e));
 
 /**
  * One household-feed line about a project, gate included.
@@ -399,11 +496,18 @@ async function loadMembers() {
       { id: "demo-2", name: "Jordan", role: "adult" },
       { id: "demo-3", name: "Casey", role: "child" },
     ];
+    membersLoaded = true;
   } else {
     try {
       const res = await fetch(`${CONTEXT}?keys=family.members`);
       members = ((await res.json())["family.members"]) ?? [];
-    } catch { members = []; }
+      membersLoaded = true;
+    } catch {
+      // A FAILED roster is not an empty one. Leaving the flag false keeps the
+      // assignee picker disabled and the current assignee intact, instead of
+      // offering a list with nobody in it and unassigning on the next save.
+      members = [];
+    }
   }
   memberMap = new Map(members.map(m => [m.id, m]));
 }
@@ -433,6 +537,7 @@ function demoData() {
     { id: "demo-n1", project_id: "demo-p1", body: "Went with the matte tile (model 4471), not the gloss — less slippery underfoot.", created_by: "demo-2", created_at: nowIso() },
   ];
   childrenLoaded.add("demo-p1");
+  summaries.set("demo-p1", summaryFromRows(budget, checklist, completionIndex(completions), notes));
 }
 
 /**
@@ -458,7 +563,10 @@ async function loadProjects() {
   if (!DB) { demoData(); return; }
   const [projectsRes, budgetRes, checklistRes, notesRes, completionsRes] =
     await db.batch(Object.values(LOCAL_READS).map(sql => ({ sql, params: [] })));
-  projects    = projectsRes.rows ?? [];
+  // Sorted here too, so the list's order comes from ONE comparator rather than
+  // from whichever read happened to deliver a row (preload, tail, or a local
+  // insert). The preload already returns this order; sorting makes it explicit.
+  projects    = mergeSorted([], projectsRes.rows ?? [], compareProjectRows);
   budget      = budgetRes.rows ?? [];
   checklist   = checklistRes.rows ?? [];
   notes       = notesRes.rows ?? [];
@@ -472,10 +580,21 @@ async function loadProjects() {
     fullyLoadedFrom(completions, READ_LIMITS.completions),
   ];
   childrenLoaded.clear();
+  childCursors.clear();
+  childLoading.clear();
+  childMore.clear();
+  summaries.clear();
   for (const p of projects) {
     if (p.completed_at) continue;                    // its children never preload
-    if (covered.every(set => set === null || set.has(p.id))) childrenLoaded.add(p.id);
+    if (!covered.every(set => set === null || set.has(p.id))) continue;
+    childrenLoaded.add(p.id);
+    // Covered in full by the preload, so the rows on hand ARE all of them and
+    // this project's totals are settled before any aggregate read returns.
+    // Every other project — finished ones, and any past a cap — states no
+    // totals until `loadSummaries` lands.
+    summaries.set(p.id, summaryFromRows(budgetOf(p.id), checklistOf(p.id), doneIndex(), notesOf(p.id)));
   }
+  seedAnnouncedMilestones();
 }
 
 /**
@@ -492,34 +611,181 @@ async function loadProjects() {
  * Paged rather than one big read so the common case (under the cap) costs
  * nothing at all, and the tail arrives after first paint.
  */
-async function loadRemainingProjects() {
+async function loadRemainingProjects(onPage) {
   if (!DB || projects.length < READ_LIMITS.projects) return;
-  // Inline integers: `LIMIT ?`/`OFFSET ?` are refused at manifest admission, so
-  // the paged form is built as text. Both values are ours, never user input.
-  for (let offset = projects.length; offset < READ_LIMITS.projects * 10; ) {
-    const { rows } = await db(`${LOCAL_READS.projects} OFFSET ${offset}`);
-    if (!rows?.length) return;
-    projects = [...projects, ...rows];
-    if (rows.length < READ_LIMITS.projects) return;
-    offset += rows.length;
+  // Inline integer: `LIMIT ?` is refused at manifest admission, so the paged
+  // form is built as text. The value is ours, never user input.
+  await loadProjectTail(
+    {
+      db,
+      sql: `SELECT * FROM app_projects__projects WHERE id > ? ORDER BY id LIMIT ${READ_LIMITS.projects}`,
+      pageSize: READ_LIMITS.projects,
+    },
+    projects.map(p => p.id),
+    // Each page is merged into the list as it stands NOW, not into a copy taken
+    // when the loader started — a project created here, or fetched by a deep
+    // link, must survive the next page landing. Progress then goes through the
+    // CALLER's guarded repaint: rendering from inside the loader bypassed that
+    // guard and replaced the search box under the caret, once per page.
+    (rows) => { projects = mergeSorted(projects, rows, compareProjectRows); onPage?.(); },
+  );
+}
+
+/**
+ * One page of a project's children.
+ *
+ * `max_rows` permits 20,000 rows per child table, and this read used to have no
+ * `LIMIT` at all: opening one long-running or finished project asked for tens
+ * of thousands of encrypted rows in a single batch, which is a freeze or a
+ * response-size failure, not a slow render. Pages are small and explicit, and
+ * each tab offers the next one.
+ */
+const CHILD_PAGE = 200;
+
+/** projectId → the last row held of each child table, as a keyset cursor. */
+const childCursors = new Map();
+/** `${projectId}:${key}` currently fetching. A second click while a page is in
+ *  flight is ignored rather than issuing the same read twice. */
+const childLoading = new Set();
+/** projectId → the child tables with more rows waiting on the server. */
+const childMore = new Map();
+
+function cursorsFor(projectId) {
+  let at = childCursors.get(projectId);
+  if (!at) { at = { budget: null, checklist: null, notes: null }; childCursors.set(projectId, at); }
+  return at;
+}
+
+function isLoadingChildren(projectId, key) {
+  return childLoading.has(`${projectId}:${key}`);
+}
+
+function hasMoreChildren(projectId, key) {
+  return childMore.get(projectId)?.has(key) ?? false;
+}
+
+function noteMore(projectId, key, rows) {
+  let set = childMore.get(projectId);
+  if (!set) { set = new Set(); childMore.set(projectId, set); }
+  if (rows.length === CHILD_PAGE) set.add(key); else set.delete(key);
+}
+
+/**
+ * Completions are NOT paged on their own. A completion exists for at most one
+ * item, so fetching them by the item ids just loaded keeps done-ness exactly
+ * right for everything on screen — where two independent pages would drift and
+ * quietly render a closed item as open.
+ *
+ * Chunked at `D1_MAX_BINDS - 1`: D1 refuses a statement carrying more than 100
+ * bound parameters, and one bind here is the project id. A full page of 200
+ * items in one `IN (…)` was 201 binds, so any project with ~100 checklist items
+ * failed to open at all.
+ */
+async function completionsForItems(projectId, itemIds) {
+  if (!itemIds.length) return [];
+  const groups = chunk(itemIds, D1_MAX_BINDS - 1);
+  const results = await db.batch(groups.map(ids => ({
+    sql: `SELECT * FROM app_projects__checklist_completions WHERE project_id = ? AND item_id IN (${ids.map(() => "?").join(", ")})`,
+    params: [projectId, ...ids],
+  })));
+  return results.flatMap(r => r.rows ?? []);
+}
+
+/** One page of `key` for a project, resuming after `cursor` (null = from the top). */
+function childPageRead(projectId, key, cursor) {
+  const spec = CHILD_ORDERS[key];
+  const resume = keysetClause(key, cursor);
+  return {
+    sql: `SELECT * FROM app_projects__${spec.table} WHERE project_id = ?${resume.sql}`
+       + ` ORDER BY ${spec.order} LIMIT ${CHILD_PAGE}`,
+    params: [projectId, ...resume.params],
+  };
+}
+
+/** Records where this page ended, and whether another may follow. */
+function noteCursor(projectId, key, rows) {
+  const at = cursorsFor(projectId);
+  if (rows.length) at[key] = cursorFrom(rows[rows.length - 1], key);
+  noteMore(projectId, key, rows);
+}
+
+/** The preload only carries children of open projects, and only up to its own
+ *  caps; fetch the first page for anything it did not cover. */
+async function ensureChildren(projectId) {
+  if (!DB || childrenLoaded.has(projectId)) return;
+  const at = cursorsFor(projectId);
+  at.budget = at.checklist = at.notes = null;
+  const [b, c, n] = await db.batch(
+    ["budget", "checklist", "notes"].map(key => childPageRead(projectId, key, null)),
+  );
+  const bRows = b.rows ?? [], cRows = c.rows ?? [], nRows = n.rows ?? [];
+  const xRows = await completionsForItems(projectId, cRows.map(r => r.id));
+
+  // This project's rows are replaced wholesale (its first page), then the array
+  // is re-sorted so display order never depends on arrival order.
+  budget      = mergeSorted(budget.filter(r => r.project_id !== projectId), bRows, compareBudgetRows);
+  checklist   = mergeById(checklist.filter(r => r.project_id !== projectId), cRows);
+  notes       = mergeSorted(notes.filter(r => r.project_id !== projectId), nRows, compareNoteRows);
+  completions = mergeById(completions.filter(r => r.project_id !== projectId), xRows);
+
+  noteCursor(projectId, "budget", bRows);
+  noteCursor(projectId, "checklist", cRows);
+  noteCursor(projectId, "notes", nRows);
+  // Additive: this project's closed milestones join what other projects already
+  // contributed. Clearing here would forget an announcement made earlier in the
+  // session and let a reopened milestone announce itself twice.
+  seedAnnouncedMilestones({ reset: false });
+  childrenLoaded.add(projectId);
+}
+
+/**
+ * The next page of one tab.
+ *
+ * Guarded per project+tab: `render()` only runs once the read resolves, so
+ * without this a double-tap issued the same read twice, appended the page
+ * twice, and — under the old OFFSET paging — advanced the offset twice, which
+ * also skipped a page. Keyset paging makes the repeat harmless on its own; the
+ * guard keeps it from being wasteful and keeps the button honestly disabled.
+ */
+async function loadMoreChildren(projectId, key) {
+  if (!DB || !hasMoreChildren(projectId, key)) return;
+  if (isLoadingChildren(projectId, key)) return;
+  const marker = `${projectId}:${key}`;
+  childLoading.add(marker);
+  render();                                    // paint the button as busy
+  try {
+    const read = childPageRead(projectId, key, cursorsFor(projectId)[key]);
+    const { rows = [] } = await db(read.sql, read.params);
+    // Merged by id, never concatenated: a row added locally since the last page
+    // sorts after the cursor, so this fetch returns it again — and a blind
+    // concat put a second copy in the array, which double-counted in the budget
+    // totals.
+    if (key === "budget") budget = mergeSorted(budget, rows, compareBudgetRows);
+    if (key === "notes") notes = mergeSorted(notes, rows, compareNoteRows);
+    if (key === "checklist") {
+      checklist = mergeById(checklist, rows);
+      completions = mergeById(completions, await completionsForItems(projectId, rows.map(r => r.id)));
+      seedAnnouncedMilestones({ reset: false });
+    }
+    noteCursor(projectId, key, rows);
+  } catch (e) {
+    hubAlert("Could not load more.", { description: e.message });
+  } finally {
+    childLoading.delete(marker);
+    render();
   }
 }
 
-/** The preload only carries children of open projects; fetch a finished one's
- *  rows the first time someone opens it. */
-async function ensureChildren(projectId) {
-  if (!DB || childrenLoaded.has(projectId)) return;
-  const [b, c, n, x] = await db.batch([
-    { sql: "SELECT * FROM app_projects__budget_items WHERE project_id = ? ORDER BY sort_order, created_at", params: [projectId] },
-    { sql: "SELECT * FROM app_projects__checklist_items WHERE project_id = ? ORDER BY sort_order, created_at", params: [projectId] },
-    { sql: "SELECT * FROM app_projects__notes WHERE project_id = ? ORDER BY created_at DESC", params: [projectId] },
-    { sql: "SELECT * FROM app_projects__checklist_completions WHERE project_id = ?", params: [projectId] },
-  ]);
-  budget      = budget.filter(r => r.project_id !== projectId).concat(b.rows ?? []);
-  checklist   = checklist.filter(r => r.project_id !== projectId).concat(c.rows ?? []);
-  notes       = notes.filter(r => r.project_id !== projectId).concat(n.rows ?? []);
-  completions = completions.filter(r => r.project_id !== projectId).concat(x.rows ?? []);
-  childrenLoaded.add(projectId);
+/**
+ * A late repaint, skipped while the user is mid-interaction.
+ *
+ * Rendering re-creates #root, so a background load finishing while someone is
+ * typing in Search would replace that input and take the caret with it. Every
+ * repaint that is NOT user-initiated goes through here.
+ */
+function guardedRepaint() {
+  if (!shouldRepaint({ modalOpen: !!modalEl, activeElementId: document.activeElement?.id ?? null })) return;
+  render();
 }
 
 async function refresh() {
@@ -536,23 +802,68 @@ async function refresh() {
   // here bought nothing and cost every launch a full round trip before anything
   // appeared. Repaint when the names land, and again when the tail arrives.
   render();
-  // A late repaint re-creates #root, so skip it while a modal is open or the
-  // search box has focus — otherwise the roster landing mid-sentence would take
-  // the caret out of the field the user is typing in.
-  const repaint = () => {
-    if (modalEl) return;
-    if (document.activeElement?.id === "search") return;
-    render();
+  loadMembers().then(guardedRepaint).catch(() => {});
+  // Totals land after the first paint: the cards render without them rather
+  // than the whole app waiting on a read that only fills in numbers.
+  summariesReady = loadSummaries().then(guardedRepaint).catch(() => {});
+  loadRemainingProjects(guardedRepaint)
+    .then(guardedRepaint)
+    .catch(e => { error = e.message; guardedRepaint(); });
+}
+
+/**
+ * The household's child totals, in one batch, once per load.
+ *
+ * Kicked off after the first paint and awaited by anything that needs a total
+ * to be exact — opening a project, publishing an event. In the common case it
+ * has long since resolved and awaiting it costs nothing; in the worst case a
+ * project opened in the first moments waits for one read it would otherwise
+ * have raced.
+ *
+ * A failure here is left as silence rather than an error: totals stay unknown,
+ * which every reader already renders as nothing. It is a wrong number this is
+ * protecting against, and no number is not one.
+ */
+let summariesReady = null;
+
+async function loadSummaries() {
+  if (!DB) return;
+  const [budgetRes, checklistRes, notesRes] = await db.batch(
+    [SUMMARY_READS.budget, SUMMARY_READS.checklist, SUMMARY_READS.notes].map(sql => ({ sql, params: [] })),
+  );
+  const index = (rows, into) => {
+    for (const row of rows ?? []) into.set(row.project_id, row);
   };
-  loadMembers().then(repaint).catch(() => {});
-  loadRemainingProjects().then(repaint).catch(e => { error = e.message; repaint(); });
+  index(budgetRes.rows, aggregates.budget);
+  index(checklistRes.rows, aggregates.checklist);
+  index(notesRes.rows, aggregates.notes);
+  // Set last: until this flips, `summaryOf` answers "not known" for everything
+  // the preload did not already settle, so a half-filled map is never read.
+  aggregates.loaded = true;
 }
 
 // ── Navigation ───────────────────────────────────────────────────────────────
+/**
+ * Opening a project waits on reads, so two opens race. Tapping A and then B
+ * showed B and then jumped back to A when A's slower read landed — and `goBack`
+ * lost the same race against an open still in flight. Each navigation takes a
+ * token; a read that finishes after a newer one started is dropped, error and
+ * all. See `navigationGate`.
+ *
+ * The two reads are concurrent rather than sequential: the children and the
+ * totals answer different questions and neither depends on the other.
+ */
 async function openProject(id) {
   const project = projects.find(p => p.id === id);
   if (!project) return;
-  try { await ensureChildren(id); } catch (e) { error = e.message; }
+  const token = nav.begin();
+  try {
+    await Promise.all([ensureChildren(id), summariesReady]);
+  } catch (e) {
+    if (!nav.current(token)) return;
+    error = e.message;
+  }
+  if (!nav.current(token)) return;
   currentProjectId = id;
   currentTab = "budget";
   view = "project";
@@ -560,6 +871,7 @@ async function openProject(id) {
 }
 
 function goBack() {
+  nav.begin();                    // invalidates an open still in flight
   view = "list";
   currentProjectId = null;
   error = "";
@@ -580,15 +892,18 @@ function statusBadge(status) {
 }
 
 function projectCard(project) {
-  const items = budgetOf(project.id);
-  const money = budgetStatus(project, items);
-  const totals = budgetTotals(items);
-  const progress = checklistProgress(checklistOf(project.id), doneIndex());
+  // Totals come from the summary, never from the rows on hand: a card is drawn
+  // for every project in the list, including ones whose children were never
+  // fetched, and counting those rows showed a real budget as "$0 of $12,000".
+  // No summary means no money line at all until one is known.
+  const summary = summaryOf(project.id);
+  const money = budgetStatusFrom(project, summary?.committedCents ?? null);
+  const progress = progressFrom(summary);
   const meta = [];
   if (project.target_date) meta.push(`Aiming for ${fmtDate(project.target_date)}`);
   if (progress) meta.push(`${progress.done}/${progress.total} done`);
   if (money) meta.push(`${fmtDollars(money.committedCents)} of ${fmtDollars(money.capCents)}`);
-  else if (totals.lineItems) meta.push(`${fmtDollars(totals.committedCents)} budgeted`);
+  else if (summary?.lineItems) meta.push(`${fmtDollars(summary.committedCents)} budgeted`);
 
   return `
     <article class="card card-link" data-testid="project-card" data-project-id="${esc(project.id)}"
@@ -651,9 +966,8 @@ function renderList() {
 
 // ── Project view ─────────────────────────────────────────────────────────────
 function renderProject(project) {
-  const items = budgetOf(project.id);
-  const money = budgetStatus(project, items);
-  const totals = budgetTotals(items);
+  const summary = summaryOf(project.id);
+  const money = budgetStatusFrom(project, summary?.committedCents ?? null);
   const canEdit = canEditProject(project, ME);
 
   return `
@@ -676,7 +990,7 @@ function renderProject(project) {
       <div class="stat-row">
         <div>
           <div class="stat-label">Committed</div>
-          <div class="stat-value${money && money.over ? " is-over" : ""}" data-testid="committed">${esc(fmtDollars(totals.committedCents))}</div>
+          <div class="stat-value${money && money.over ? " is-over" : ""}" data-testid="committed">${esc(fmtDollars(summary ? summary.committedCents : null))}</div>
         </div>
         <div>
           <div class="stat-label">Budget</div>
@@ -685,7 +999,7 @@ function renderProject(project) {
         <div>
           <div class="stat-label">${money ? (money.over ? "Over by" : "Left") : "Estimated"}</div>
           <div class="stat-value${money && money.over ? " is-over" : ""}">
-            ${esc(money ? fmtDollars(Math.abs(money.remainingCents)) : fmtDollars(totals.estimatedCents))}
+            ${esc(money ? fmtDollars(Math.abs(money.remainingCents)) : fmtDollars(summary ? summary.estimatedCents : null))}
           </div>
         </div>
       </div>
@@ -705,13 +1019,18 @@ function renderProject(project) {
   `;
 }
 
+/** Counts are the summary's or they are omitted — a tab reading "Budget (200)"
+ *  on a project with 900 line items is a number the app has no business
+ *  stating. Photo ids live on the project row itself, so that count is always
+ *  complete. */
 function tabLabel(tab, project) {
-  if (tab === "budget") return `Budget (${budgetOf(project.id).length})`;
+  const summary = summaryOf(project.id);
+  if (tab === "budget") return summary ? `Budget (${summary.lineItems})` : "Budget";
   if (tab === "checklist") {
-    const progress = checklistProgress(checklistOf(project.id), doneIndex());
+    const progress = progressFrom(summary);
     return progress ? `Checklist (${progress.done}/${progress.total})` : "Checklist";
   }
-  if (tab === "notes") return `Decisions (${notesOf(project.id).length})`;
+  if (tab === "notes") return summary ? `Decisions (${summary.notes})` : "Decisions";
   return `Photos (${parseFileIds(project.file_ids).length})`;
 }
 
@@ -751,6 +1070,7 @@ function renderBudgetTab(project) {
           <tbody>${rows}</tbody>
         </table>
       </div>` : `<div class="card empty"><p>No line items yet. Add what you expect it to cost, then fill in the real price as the bills land.</p></div>`}
+    ${hasMoreChildren(project.id, "budget") ? `<button class="btn btn-sm" type="button" style="margin-top:10px"${isLoadingChildren(project.id, "budget") ? " disabled" : ""} onclick="loadMoreFor(${jsArg("budget")})">${isLoadingChildren(project.id, "budget") ? "Loading…" : "Load more line items"}</button>` : ""}
     ${canAdd ? `<button class="btn-add" type="button" style="margin-top:10px" onclick="openNewBudgetItem()">+ Add a line item</button>` : ""}
   `;
 }
@@ -803,6 +1123,7 @@ function renderChecklistTab(project) {
   return `
     ${items.length ? `<div class="card">${rows}</div>`
       : `<div class="card empty"><p>Nothing on the checklist yet. Add the phases and the jobs, and flag the ones that are real milestones.</p></div>`}
+    ${hasMoreChildren(project.id, "checklist") ? `<button class="btn btn-sm" type="button" style="margin-top:10px"${isLoadingChildren(project.id, "checklist") ? " disabled" : ""} onclick="loadMoreFor(${jsArg("checklist")})">${isLoadingChildren(project.id, "checklist") ? "Loading…" : "Load more items"}</button>` : ""}
     ${canAdd ? `<button class="btn-add" type="button" style="margin-top:10px" onclick="openNewChecklistItem()">+ Add a checklist item</button>` : ""}
   `;
 }
@@ -829,6 +1150,7 @@ function renderNotesTab(project) {
   return `
     ${items.length ? `<div class="card">${rows}</div>`
       : `<div class="card empty"><p>No decisions logged. This is the place for "we picked the matte tile, model 4471" — the detail nobody remembers three weeks later.</p></div>`}
+    ${hasMoreChildren(project.id, "notes") ? `<button class="btn btn-sm" type="button" style="margin-top:10px"${isLoadingChildren(project.id, "notes") ? " disabled" : ""} onclick="loadMoreFor(${jsArg("notes")})">${isLoadingChildren(project.id, "notes") ? "Loading…" : "Load more decisions"}</button>` : ""}
     ${canAdd ? `<button class="btn-add" type="button" style="margin-top:10px" onclick="openNewNote()">+ Log a decision</button>` : ""}
   `;
 }
@@ -972,9 +1294,14 @@ async function saveProject(isEdit) {
       closeModal();
       render();
       if (!wasDone && nowDone && mayPublish(project)) {
-        const totals = budgetTotals(budgetOf(project.id));
-        publishEvent("project.completed", project.id, {
-          project_id: project.id, name: project.name, committed_cents: totals.committedCents,
+        // The exact total, or the field is left off entirely. Summing the page
+        // of line items in memory published a number that was simply wrong on
+        // any project past a page — and this event is the one a household's
+        // spending automations read.
+        const committedCents = summaryOf(project.id)?.committedCents ?? null;
+        await publishEvent("project.completed", project.id, {
+          project_id: project.id, name: project.name,
+          ...(committedCents === null ? {} : { committed_cents: committedCents }),
         });
         logProjectActivity(project, `Finished the project "${project.name}"`);
       }
@@ -993,12 +1320,16 @@ async function saveProject(isEdit) {
          project.target_date, project.budget_cap_cents, project.file_ids,
          project.created_by, project.created_at, project.updated_at, project.completed_at]
       );
-      projects = [project, ...projects];
+      projects = mergeSorted(projects, [project], compareProjectRows);
       childrenLoaded.add(project.id);
+      // A project created here has no children, and that is an EXACT total —
+      // not an unknown one. Without this its own tabs would read "Budget" with
+      // no count until the next load.
+      summaries.set(project.id, summaryFromRows([], [], new Map(), []));
       closeModal();
       openProject(project.id);
       if (mayPublish(project)) {
-        publishEvent("project.created", project.id, {
+        await publishEvent("project.created", project.id, {
           project_id: project.id, name: project.name,
           target_date: project.target_date, budget_cap_cents: project.budget_cap_cents,
         });
@@ -1043,6 +1374,7 @@ async function deleteProject() {
     notes       = notes.filter(n => n.project_id !== project.id);
     completions = completions.filter(x => x.project_id !== project.id);
     childrenLoaded.delete(project.id);
+    summaries.delete(project.id);
     closeModal();
     goBack();
   } catch (e) {
@@ -1100,12 +1432,19 @@ async function saveBudgetItem(itemId) {
   // test: under a $10,000 cap with $6,000 and $5,000 lines, editing the $5,000
   // line's label saw $6,000 "not over" then $11,000 "over", and re-announced
   // the same overrun on every save.
-  const before = budgetOf(project.id);
-  const saved = {
-    id: itemId ?? "__new__",
-    estimated_cents: estimated, actual_cents: actual, purchased,
-  };
-  const crossed = crossesBudget(project, before, itemsAfterSave(before, saved));
+  // Measured on the project's EXACT committed total, not on the page of line
+  // items in memory. The old comparison walked the loaded rows, so on a project
+  // past the 200-row page it compared two understated numbers: an overrun could
+  // pass unannounced, and `committed_cents` went out on the event understated
+  // to whatever automation was listening.
+  const beforeCents = summaryOf(project.id)?.committedCents ?? null;
+  const afterCents = beforeCents === null
+    ? null
+    : beforeCents - (existing ? committedOf(existing) : 0)
+      + committedOf({ estimated_cents: estimated, actual_cents: actual });
+  const crossed = crossedCap(project.budget_cap_cents, beforeCents, afterCents);
+
+  const wasWorth = existing ? { estimated_cents: existing.estimated_cents, actual_cents: existing.actual_cents } : null;
 
   try {
     if (existing) {
@@ -1116,6 +1455,7 @@ async function saveBudgetItem(itemId) {
         "Only whoever added this line item can change it.",
       );
       Object.assign(existing, { label, vendor_name: vendor, estimated_cents: estimated, actual_cents: actual, purchased, updated_at: now });
+      updateSummary(project.id, { before: wasWorth, after: { estimated_cents: estimated, actual_cents: actual } });
     } else {
       const sortOrder = budgetOf(project.id).length;
       const item = {
@@ -1130,15 +1470,15 @@ async function saveBudgetItem(itemId) {
         [item.id, item.project_id, item.label, item.vendor_name, item.estimated_cents,
          item.actual_cents, item.purchased, item.sort_order, item.created_by, item.created_at, item.updated_at]
       );
-      budget = [...budget, item];
+      budget = mergeSorted(budget, [item], compareBudgetRows);
+      updateSummary(project.id, { after: item });
     }
     closeModal();
     render();
     if (crossed && mayPublish(project)) {
-      const totals = budgetTotals(budgetOf(project.id));
-      publishEvent("project.budget_exceeded", project.id, {
+      await publishEvent("project.budget_exceeded", project.id, {
         project_id: project.id, name: project.name,
-        budget_cap_cents: project.budget_cap_cents, committed_cents: totals.committedCents,
+        budget_cap_cents: project.budget_cap_cents, committed_cents: afterCents,
       });
     }
   } catch (e) {
@@ -1159,6 +1499,7 @@ async function deleteBudgetItem(itemId) {
     await dbWrite("DELETE FROM app_projects__budget_items WHERE id = ?", [itemId],
       "Only whoever added this line item can remove it.");
     budget = budget.filter(b => b.id !== itemId);
+    updateSummary(project.id, { before: item });
     render();
   } catch (e) {
     hubAlert("Could not remove this line item.", { description: e.message });
@@ -1174,7 +1515,7 @@ function checklistItemForm(item) {
     ${field("f-title", "What needs doing", `<input id="f-title" value="${esc(c.title ?? "")}" placeholder="Choose grout colour" />`)}
     <div class="field-row">
       ${field("f-due", "Due", `<input id="f-due" type="date" value="${esc(c.due_date ?? "")}" />`)}
-      ${field("f-assignee", "Who", `<select id="f-assignee"><option value="">Nobody yet</option>${members.map(m => `<option value="${esc(m.id)}"${c.assignee_id === m.id ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select>`)}
+      ${field("f-assignee", "Who", assigneeSelect(c))}
     </div>
     <div class="check-line" style="margin-bottom:4px">
       <input type="checkbox" id="f-milestone"${Number(c.is_milestone) === 1 ? " checked" : ""} />
@@ -1187,16 +1528,62 @@ function checklistItemForm(item) {
   `;
 }
 
+/**
+ * The assignee picker.
+ *
+ * Until the roster lands the select is disabled and carries only the item's
+ * CURRENT assignee. Rendering the usual "Nobody yet"-only list in that window
+ * meant opening an item to fix its title, and silently writing
+ * `assignee_id = null` on save — a destructive edit nobody asked for, and an
+ * invisible one, since the late roster repaint is deliberately skipped while a
+ * modal is open and so could never repair the form.
+ */
+function assigneeSelect(item) {
+  const current = item?.assignee_id ?? null;
+  if (!membersLoaded) {
+    return `<select id="f-assignee" disabled data-roster="pending">`
+      + (current
+          ? `<option value="${esc(current)}" selected>${esc(memberName(current))}</option>`
+          : `<option value="">Nobody yet</option>`)
+      + `</select><p class="muted tiny">The family list has not loaded — reopen this to change who it is for.</p>`;
+  }
+  const options = assignableMembers(currentProject(), members);
+  // A current assignee who is no longer assignable (they left, or the project's
+  // visibility narrowed) still has to appear, or saving any other field would
+  // quietly unassign them.
+  const orphaned = current && !options.some(m => m.id === current);
+  return `<select id="f-assignee"><option value="">Nobody yet</option>`
+    + (orphaned ? `<option value="${esc(current)}" selected>${esc(memberName(current))}</option>` : "")
+    + options.map(m => `<option value="${esc(m.id)}"${current === m.id ? " selected" : ""}>${esc(m.name)}</option>`).join("")
+    + `</select>`;
+}
+
 async function saveChecklistItem(itemId) {
   const project = currentProject();
   if (!project) return;
   const title = document.getElementById("f-title").value.trim();
   if (!title) { document.getElementById("f-title").focus(); return; }
   const dueDate = document.getElementById("f-due").value || null;
-  const assigneeId = document.getElementById("f-assignee").value || null;
+  const assigneeField = document.getElementById("f-assignee");
+  // A disabled picker means the roster never arrived: keep what the row already
+  // says rather than writing the empty select over it.
+  const existingRow = itemId ? checklist.find(c => c.id === itemId) : null;
+  const assigneeId = assigneeField.disabled
+    ? (existingRow?.assignee_id ?? null)
+    : (assigneeField.value || null);
   const isMilestone = document.getElementById("f-milestone").checked ? 1 : 0;
+  // The picker only offers members who can open the project, but a picker is
+  // not a boundary — and an assignment to someone who cannot see the project
+  // is the payload that used to leak its title onto their task list.
+  const assigneeChanged = assigneeId !== (existingRow?.assignee_id ?? null);
+  if (assigneeChanged && assigneeId && !assignableMembers(project, members).some(m => m.id === assigneeId)) {
+    hubAlert("That person cannot see this project.", {
+      description: "Share the project more widely first, or choose someone else.",
+    });
+    return;
+  }
 
-  const existing = itemId ? checklist.find(c => c.id === itemId) : null;
+  const existing = existingRow;
   const previousAssignee = existing?.assignee_id ?? null;
   const btn = busy(itemId ? "Saving…" : "Adding…");
   const now = nowIso();
@@ -1229,7 +1616,8 @@ async function saveChecklistItem(itemId) {
         [item.id, item.project_id, item.title, item.due_date, item.assignee_id,
          item.is_milestone, item.sort_order, item.created_by, item.created_at, item.updated_at]
       );
-      checklist = [...checklist, item];
+      checklist = mergeById(checklist, [item]);
+      updateSummary(project.id, { checklist: 1 });
       savedId = item.id;
     }
     closeModal();
@@ -1237,7 +1625,7 @@ async function saveChecklistItem(itemId) {
     // Only a NEW assignment is announced. Republishing on every later edit
     // would hand the assignee a duplicate task each time the title changed.
     if (assigneeId && assigneeId !== previousAssignee && mayPublish(project)) {
-      publishEvent("project.task_assigned", savedId, {
+      await publishEvent("project.task_assigned", savedId, {
         project_id: project.id, project_name: project.name,
         title, assignee_id: assigneeId, due_date: dueDate,
       });
@@ -1276,20 +1664,23 @@ async function toggleChecklist(itemId) {
 
 async function toggleChecklistWrite(project, item) {
   const itemId = item.id;
-  const existing = completionOf(item, doneIndex());
+  const decision = toggleDecision(item, project, ME, doneIndex(), memberName);
 
-  if (existing) {
-    if (!canUncompleteItem(existing, project, ME)) {
-      error = `Only ${memberName(existing.done_by)} can reopen this — they are the one who closed it.`;
-      render();
-      return;
-    }
+  if (decision.action === "denied") {
+    error = decision.reason;
+    render();
+    return;
+  }
+
+  if (decision.action === "reopen") {
+    const existing = decision.completion;
     try {
       await dbWrite(
         "DELETE FROM app_projects__checklist_completions WHERE id = ?", [existing.id],
         "This item could not be reopened.",
       );
       completions = completions.filter(x => x.id !== existing.id);
+      updateSummary(project.id, { done: -1 });
       render();
     } catch (e) {
       hubAlert("Could not reopen this item.", { description: e.message });
@@ -1297,11 +1688,6 @@ async function toggleChecklistWrite(project, item) {
     return;
   }
 
-  if (!canCompleteItem(project, ME)) {
-    error = "You cannot tick off items on this project.";
-    render();
-    return;
-  }
   const now = nowIso();
   const completion = {
     id: uuid(), project_id: project.id, item_id: item.id,
@@ -1315,6 +1701,7 @@ async function toggleChecklistWrite(project, item) {
       "This item could not be ticked off.",
     );
     completions = [...completions, completion];
+    updateSummary(project.id, { done: 1 });
     // Announced once per item. Un-ticking a milestone that was flagged too
     // early and re-ticking it is a correction, not a second milestone, and
     // every re-announcement runs any automation subscribed to the event again.
@@ -1323,7 +1710,7 @@ async function toggleChecklistWrite(project, item) {
     // are not allowed to make.
     if (Number(item.is_milestone) === 1 && mayPublish(project) && !announcedMilestones.has(itemId)) {
       announcedMilestones.add(itemId);
-      publishEvent("project.milestone_reached", project.id, {
+      await publishEvent("project.milestone_reached", project.id, {
         project_id: project.id, project_name: project.name, title: item.title,
       });
       logProjectActivity(project, `Hit a milestone on "${project.name}": ${item.title}`);
@@ -1343,10 +1730,12 @@ async function deleteChecklistItem(itemId) {
       "DELETE FROM app_projects__checklist_items WHERE id = ?", [itemId],
       "Only whoever added this item can remove it.",
     );
+    const wasDone = doneIndex().has(itemId);
     checklist = checklist.filter(c => c.id !== itemId);
     // The row's completion goes with it in the database (ON DELETE CASCADE);
     // drop it here so the screen agrees without a refetch.
     completions = completions.filter(x => x.item_id !== itemId);
+    updateSummary(item.project_id, { checklist: -1, done: wasDone ? -1 : 0 });
     render();
   } catch (e) {
     hubAlert("Could not remove this item.", { description: e.message });
@@ -1379,7 +1768,8 @@ async function saveNote() {
       "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, ?)",
       [note.id, note.project_id, note.body, note.created_by, note.created_at]
     );
-    notes = [note, ...notes];
+    notes = mergeSorted(notes, [note], compareNoteRows);
+    updateSummary(project.id, { notes: 1 });
     closeModal();
     render();
   } catch (e) {
@@ -1389,12 +1779,14 @@ async function saveNote() {
 }
 
 async function deleteNote(noteId) {
+  const note = notes.find(n => n.id === noteId);
   const ok = await hubConfirm({ message: "Delete this decision?", confirmLabel: "Delete", destructive: true });
   if (!ok) return;
   try {
     await dbWrite("DELETE FROM app_projects__notes WHERE id = ?", [noteId],
       "Only whoever logged this decision can delete it.");
     notes = notes.filter(n => n.id !== noteId);
+    if (note) updateSummary(note.project_id, { notes: -1 });
     render();
   } catch (e) {
     hubAlert("Could not delete this note.", { description: e.message });
@@ -1418,33 +1810,8 @@ async function deleteNote(noteId) {
  * random IV means a `WHERE file_ids = ?` guard could never match. A row someone
  * else has touched since our read fails the guard, and we retry against theirs.
  */
-async function rewritePhotoIds(project, mutate, refusal) {
-  if (!DB) { project.file_ids = JSON.stringify(mutate(parseFileIds(project.file_ids))); return; }
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const stamp = project.updated_at;
-    const next = JSON.stringify(mutate(parseFileIds(project.file_ids)));
-    // Strictly advance the stamp: a same-millisecond write would otherwise
-    // leave the guard satisfiable by a racing caller holding the same value.
-    const now = nowIso() === stamp ? new Date(Date.parse(stamp) + 1).toISOString() : nowIso();
-    const res = await db(
-      "UPDATE app_projects__projects SET file_ids = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
-      [next, now, project.id, stamp],
-    );
-    if (Number(res.changed ?? 0) > 0) {
-      project.file_ids = next;
-      project.updated_at = now;
-      return;
-    }
-    // Zero rows: either somebody else wrote first, or the row is gone. Re-read
-    // and let the loop decide which.
-    const { rows } = await db(
-      "SELECT id, file_ids, updated_at FROM app_projects__projects WHERE id = ?", [project.id]);
-    if (!rows?.length) throw new Error(refusal);
-    project.file_ids = rows[0].file_ids;
-    project.updated_at = rows[0].updated_at;
-  }
-  throw new Error(refusal);
-}
+const rewritePhotoIds = (project, mutate, refusal) =>
+  rewriteFileIds(db, project, mutate, refusal, { live: !!DB, now: nowIso });
 
 async function addPhoto(input) {
   const project = currentProject();
@@ -1494,6 +1861,10 @@ window.closeModal = closeModal;
 window.goBackToList = goBack;
 window.openProjectById = function(id) { openProject(id); };
 window.setTab = function(tab) { currentTab = tab; render(); };
+window.loadMoreFor = function(key) {
+  const project = currentProject();
+  if (project) loadMoreChildren(project.id, key);
+};
 
 window.openNewProject = function() {
   openModal(projectForm(null));
@@ -1553,15 +1924,47 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && modalEl) closeModal();
 });
 
-function handleDeepLink() {
+/**
+ * A link into one project — `?projectId=…`, which is what the activity feed and
+ * every automation-sent notification hand out.
+ *
+ * The list is one page of 100 and the rest arrives in the background, so a link
+ * to an older project used to find nothing and silently leave the reader on the
+ * list — exactly the projects a link is most likely to point at, since finished
+ * ones sort last. Waiting for the tail instead would be up to ten round trips
+ * to open one project, so the row is fetched by id directly.
+ *
+ * Row policies answer this read like any other: a project the viewer may not
+ * see comes back as no rows, and the link lands on the list — the same as a
+ * deleted one, deliberately, since which of the two it is is not the reader's
+ * business.
+ *
+ * It defers to the user. The fetch is a round trip during which someone can
+ * tap a card, so the token taken before it is checked after: if the user has
+ * navigated in the meantime, the link is dropped rather than yanking them out
+ * of what they chose.
+ */
+async function handleDeepLink() {
   const params = new URLSearchParams(window.location.search);
   const projectId = params.get("projectId");
-  if (projectId && projects.some(p => p.id === projectId)) openProject(projectId);
+  if (!projectId) return;
+  if (projects.some(p => p.id === projectId)) { await openProject(projectId); return; }
+  if (!DB) return;
+  const token = nav.peek();
+  try {
+    const { rows = [] } = await db("SELECT * FROM app_projects__projects WHERE id = ?", [projectId]);
+    if (!rows.length || !nav.current(token)) return;
+    projects = mergeSorted(projects, rows, compareProjectRows);
+    await openProject(projectId);
+  } catch {
+    // A link that cannot be resolved leaves the reader on the list, which is
+    // where they already are. Nothing to report and nothing to retry.
+  }
 }
 
 (async () => {
   await refresh();
-  handleDeepLink();
+  await handleDeepLink();
 })();
 </script>
 </body>

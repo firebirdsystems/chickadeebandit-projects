@@ -109,9 +109,24 @@ CREATE TABLE IF NOT EXISTS app_projects__notes (
   created_at TEXT NOT NULL
 );
 
--- Open projects first, then by the date they are aimed at: the preload's order.
+-- `WHERE completed_at IS NULL`: the four child preloads join through this.
 CREATE INDEX IF NOT EXISTS app_projects__projects_open_idx
   ON app_projects__projects (completed_at, target_date);
+
+-- The projects preload's ORDER BY, mirrored term for term — including the DESC.
+-- It sorts on two boolean EXPRESSIONS (open first; then dated projects before
+-- undated ones, which is SQLite's missing NULLS LAST), and a plain column index
+-- cannot answer an expression, so the planner fell back to a full scan plus a
+-- temporary B-tree. Any change to that ORDER BY has to be made here too, or the
+-- scan comes back: contract-ci EXPLAINs every declared preload and fails the
+-- release on an avoidable one.
+CREATE INDEX IF NOT EXISTS app_projects__projects_order_idx
+  ON app_projects__projects (
+    (completed_at IS NULL) DESC,
+    (target_date IS NULL),
+    target_date,
+    created_at
+  );
 
 -- Every child read is scoped to its parent, so the FK leads each index.
 CREATE INDEX IF NOT EXISTS app_projects__budget_items_project_idx

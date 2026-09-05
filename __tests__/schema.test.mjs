@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { describe, it, expect } from "vitest";
+import { canEditChild, canUncompleteItem, CHILD_ORDERS } from "../src/logic.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -351,4 +352,232 @@ describe("the agenda reads done-ness without a subquery", () => {
     expect(q).toContain("LEFT JOIN app_projects__checklist_completions");
     expect(q).not.toMatch(/EXISTS|IN\s*\(\s*SELECT/i);
   });
+});
+
+describe("structural columns are immutable on every table", () => {
+  const acls = t => manifest.row_policies[t].column_write_acls ?? {};
+  const immutableOnUpdate = (t, col) => {
+    const cfg = acls(t)[col];
+    return !!cfg && cfg.writable_by.length === 0 && (cfg.actions ?? []).includes("update");
+  };
+
+  it("locks the identity and attribution columns the UI never edits", () => {
+    // adults_bypass lets a supervisor UPDATE any child row of a project they can
+    // see. Without these, that reaches far past the UI's intent: false
+    // attribution (created_by/done_by), moving a record to another visible
+    // project (project_id), or repointing which item a completion closes.
+    for (const t of ["budget_items", "checklist_items"]) {
+      for (const col of ["id", "project_id", "created_by", "created_at", "sort_order"]) {
+        expect(immutableOnUpdate(t, col), `${t}.${col}`).toBe(true);
+      }
+    }
+    for (const col of ["id", "created_by", "created_at", "source_event_id"]) {
+      expect(immutableOnUpdate("projects", col), `projects.${col}`).toBe(true);
+    }
+  });
+
+  it("forbids UPDATE outright on notes and completions", () => {
+    // Neither has an edit path — a decision is retracted and re-logged, a tick
+    // is undone and re-made — so every column is immutable and there is no
+    // legitimate UPDATE shape left at all. Asserted against the MIGRATION's
+    // column list, so a column added later without an ACL fails here.
+    for (const t of ["notes", "checklist_completions"]) {
+      for (const col of schema[t]) {
+        expect(immutableOnUpdate(t, col), `${t}.${col} must be immutable`).toBe(true);
+      }
+    }
+  });
+
+  it("leaves the genuinely editable fields writable", () => {
+    for (const col of ["label", "vendor_name", "estimated_cents", "actual_cents", "purchased", "updated_at"]) {
+      expect(acls("budget_items")[col], `budget_items.${col}`).toBeUndefined();
+    }
+    for (const col of ["title", "due_date", "assignee_id", "is_milestone", "updated_at"]) {
+      expect(acls("checklist_items")[col], `checklist_items.${col}`).toBeUndefined();
+    }
+  });
+});
+
+describe("the projects preload can use an index", () => {
+  it("ships an expression index mirroring its ORDER BY term for term", () => {
+    // The ORDER BY sorts on two boolean EXPRESSIONS; a plain column index
+    // cannot answer one, so the planner fell back to a full scan plus a temp
+    // B-tree and contract-ci failed the release.
+    const order = manifest.preload.projects.sql.match(/ORDER BY (.+?) LIMIT/)[1];
+    const idx = migrationSql.match(/CREATE INDEX[^;]*projects_order_idx[^;]*;/i)?.[0] ?? "";
+    const norm = t => t.replace(/\s+/g, " ").replace(/\s*,\s*/g, ",").trim();
+    for (const term of order.split(",")) {
+      expect(norm(idx)).toContain(norm(term));
+    }
+  });
+});
+
+describe("the client gates and the manifest cannot drift apart", () => {
+  // The failure this closes has already happened twice on this app: a client
+  // gate that grants adults, over a policy that does not. Nothing in the logic
+  // tests notices, because they only ever exercise the gate — so if the flag
+  // were dropped from the manifest they would stay green while every adult's
+  // Edit button started coming back `changed: 0`.
+  const ADULT = { id: "a1", role: "adult" };
+  const CHILD = { id: "k1", role: "child" };
+  const shared = {
+    id: "p1", visibility: "everyone", created_by: "someone-else", completed_at: null,
+  };
+  const childTables = Object.entries(manifest.row_policies)
+    .filter(([, p]) => p.kind === "inherit_visibility");
+
+  it("has child tables to check", () => {
+    expect(childTables.length).toBeGreaterThan(0);
+  });
+
+  it("declares adults_bypass wherever a gate lets an adult edit another member's row", () => {
+    const adultMayEditOthers = canEditChild({ created_by: CHILD.id }, shared, ADULT);
+    const adultMayReopenOthers =
+      canUncompleteItem({ done_by: CHILD.id, item_id: "c1" }, shared, ADULT);
+    if (!adultMayEditOthers && !adultMayReopenOthers) return;  // gates are writer-only: nothing to declare
+
+    for (const [table, policy] of childTables) {
+      expect(policy.adults_bypass, `row_policies.${table}.adults_bypass`).toBe(true);
+    }
+  });
+
+  it("keeps the reverse true: no bypass declared without a gate that uses it", () => {
+    // A flag nobody's UI relies on is a widened policy with no reason, which is
+    // how a table quietly becomes adult-writable long after anyone remembers.
+    const declared = childTables.filter(([, p]) => p.adults_bypass === true);
+    if (declared.length === 0) return;
+    expect(
+      canEditChild({ created_by: CHILD.id }, shared, ADULT)
+      || canUncompleteItem({ done_by: CHILD.id }, shared, ADULT),
+    ).toBe(true);
+  });
+
+  it("still refuses a child on another member's row, bypass or not", () => {
+    expect(canEditChild({ created_by: "someone" }, shared, CHILD)).toBe(false);
+  });
+});
+
+describe("the keyset paging has indexes that cover it", () => {
+  // Without the full composite key SQLite seeks to the project and then sorts
+  // every one of its rows in a temp B-tree — on tables that permit 20,000 rows
+  // each. EXPLAIN lives in the hub's contract runner (this repo has no sqlite),
+  // so what is asserted here is the coupling: each index must name the table's
+  // complete read order, in order.
+  // The LAST definition wins: 002 drops and recreates these names, and reading
+  // the first match would assert against the superseded 001 shape.
+  const indexOn = (name) => {
+    const all = [...migrationSql.matchAll(
+      new RegExp(`CREATE INDEX[^;]*?${name}\\s+ON\\s+\\w+\\s*\\(([^)]*)\\)`, "gi"))];
+    const last = all[all.length - 1];
+    return last ? last[1].replace(/\s+/g, " ").trim() : null;
+  };
+
+  it("indexes budget and checklist on project_id + the whole ordering", () => {
+    for (const t of ["budget_items", "checklist_items"]) {
+      expect(indexOn(`app_projects__${t}_project_idx`), t)
+        .toBe("project_id, sort_order, created_at, id");
+    }
+  });
+
+  it("indexes decisions DESC to match its newest-first read", () => {
+    expect(indexOn("app_projects__notes_project_idx"))
+      .toBe("project_id, created_at DESC, id");
+  });
+
+  it("drops the narrower index it replaces rather than keeping both", () => {
+    // Each old index is now a strict prefix of its replacement: keeping both
+    // costs an extra index write per insert and buys nothing.
+    for (const t of ["budget_items", "checklist_items", "notes"]) {
+      expect(migrationSql, t).toContain(`DROP INDEX IF EXISTS app_projects__${t}_project_idx;`);
+    }
+  });
+
+  it("matches the CHILD_ORDERS the app actually pages by", () => {
+    // The coupling that matters: change the read order in logic.js and this
+    // fails until the index follows.
+    const expected = {
+      budget_items: "project_id, sort_order, created_at, id",
+      checklist_items: "project_id, sort_order, created_at, id",
+      notes: "project_id, created_at DESC, id",
+    };
+    for (const spec of Object.values(CHILD_ORDERS)) {
+      const orderCols = spec.order.replace(/\s+/g, " ").trim();
+      expect(indexOn(`app_projects__${spec.table}_project_idx`), spec.table)
+        .toBe(`project_id, ${orderCols}`);
+      expect(indexOn(`app_projects__${spec.table}_project_idx`)).toBe(expected[spec.table]);
+    }
+  });
+});
+
+// ── The summary aggregates ───────────────────────────────────────────────────
+//
+// Every total the app states as a fact is one of these three reads. They are
+// runtime statements, so nothing in the hub's admission checks sees them: the
+// contract suite validates manifest SQL only. What can be checked here is that
+// they name columns that exist and filter on a column an index leads with —
+// the two ways a rename or a dropped index would turn them into a silent full
+// scan or a runtime error. The hub's own suite runs them through the real
+// rewriter for the part that matters more: that their counts respect
+// visibility.
+describe("SUMMARY_READS", () => {
+  const reads = (() => {
+    const block = /const SUMMARY_READS = \{([\s\S]*?)\n\};/.exec(html)?.[1] ?? "";
+    const out = {};
+    for (const [, key, sql] of block.matchAll(/(\w+):\s*"((?:[^"\\]|\\.)*)"/g)) out[key] = sql;
+    return out;
+  })();
+
+  it("declares one read per counted table", () => {
+    expect(Object.keys(reads).sort()).toEqual(["budget", "checklist", "notes"]);
+  });
+
+  it("names only columns the migrations really define", () => {
+    const expected = {
+      budget: ["budget_items", ["estimated_cents", "actual_cents", "project_id"]],
+      checklist: ["checklist_items", ["project_id"]],
+      notes: ["notes", ["project_id"]],
+    };
+    for (const [key, [table, columns]] of Object.entries(expected)) {
+      for (const column of columns) {
+        expect(has(table, column), `${key}: ${table}.${column}`).toBe(true);
+        expect(reads[key]).toContain(column);
+      }
+    }
+    // The checklist read joins completions on item_id, which is the column the
+    // composite FK ties to its project.
+    expect(has("checklist_completions", "item_id")).toBe(true);
+  });
+
+  it("sums the money columns rather than an encrypted one", () => {
+    // Numbers are never encrypted; a TEXT column here would be ciphertext and
+    // would SUM to zero for every household, in silence.
+    for (const column of ["estimated_cents", "actual_cents"]) {
+      expect(new RegExp(`^\\s*${column}\\s+INTEGER\\b`, "mi").test(migrationSql), column).toBe(true);
+    }
+  });
+
+  it("mirrors budgetTotals: the real price where known, the estimate elsewhere", () => {
+    // Two definitions of "committed" — one in SQL, one in logic.js — is a drift
+    // waiting to happen, and the drift would show up as a total that changes
+    // when a project is opened. This pins the SQL half.
+    expect(reads.budget.replace(/\s+/g, " "))
+      .toContain("SUM(COALESCE(actual_cents, estimated_cents))");
+  });
+
+  it("groups by a column its table's index leads with", () => {
+    for (const [key, table] of [["budget", "budget_items"], ["checklist", "checklist_items"], ["notes", "notes"]]) {
+      // Grouping by an unindexed column is a scan plus a temporary B-tree, on
+      // a read that runs once per launch for every household.
+      const index = indexOnTable(table);
+      expect(index, `${key}: no index on ${table}`).not.toBe(null);
+      expect(index.split(",")[0].trim()).toBe("project_id");
+    }
+  });
+
+  const indexOnTable = (table) => {
+    const all = [...migrationSql.matchAll(
+      new RegExp(`CREATE INDEX[^;]*?ON\\s+${PREFIX}${table}\\s*\\(([^;]*?)\\);`, "gi"))];
+    const last = all[all.length - 1];
+    return last ? last[1].replace(/\s+/g, " ").trim() : null;
+  };
 });

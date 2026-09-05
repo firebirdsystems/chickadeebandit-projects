@@ -67,5 +67,43 @@ node "$ROOT/build.mjs"
 echo ""
 echo "▶ Tests…"
 npm test --prefix "$ROOT"
+
+# ── The contract suite, when a hub checkout is at hand ───────────────────────
+#
+# The release workflow clones the hub and runs this before it will build or
+# publish, so CI already gates on it. Running it here too is about WHERE the
+# failure lands: the query-plan gate EXPLAINs every declared preload, and an
+# ORDER BY that no index can answer is invisible to `build.mjs` and to the app's
+# own tests — nothing in this repo can EXPLAIN anything, since vitest is its
+# only dependency. Without this, a full table scan is a red CI run instead of a
+# refused push.
+#
+# Skipped, loudly, when no sibling hub checkout exists: a contributor without
+# one must still be able to push, and CI remains the real gate.
+CONTRACT_DIR=""
+for candidate in \
+  "$ROOT/../../chickadeebandit/packages/hub/contract-ci" \
+  "$ROOT/../../../chickadeebandit/packages/hub/contract-ci"
+do
+  [ -d "$candidate" ] && CONTRACT_DIR="$(cd "$candidate" && pwd)" && break
+done
+
+if [ -z "$CONTRACT_DIR" ]; then
+  echo ""
+  echo "• Contract suite skipped — no sibling hub checkout found."
+  echo "  CI still runs it and will block the release on a failure."
+elif [ ! -d "$CONTRACT_DIR/node_modules" ]; then
+  echo ""
+  echo "• Contract suite skipped — runner not installed."
+  echo "  Install it once with:  (cd $CONTRACT_DIR && npm ci)"
+else
+  echo ""
+  echo "▶ Contract suite (row policies, migrations, query plans)…"
+  # CB_APPS_DIR is the apps checkout: the suite validates every app in it, so a
+  # change here that breaks a shared expectation surfaces before the push.
+  ( cd "$CONTRACT_DIR" \
+    && CI=true CB_APPS_DIR="$(cd "$ROOT/.." && pwd)" npx vitest run )
+fi
+
 echo ""
 echo "✓ Preflight passed"
