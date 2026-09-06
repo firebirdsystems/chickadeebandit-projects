@@ -1,0 +1,504 @@
+{
+  "scenarios": [
+    {
+      "name": "a completion naming an item from another project is refused by the composite foreign key",
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__projects (id, name, status, visibility, created_by, created_at, updated_at) VALUES ('p-a', 'Deck rebuild', 'active', 'everyone', ?, '2026-08-01T09:00:00Z', '2026-08-01T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__projects (id, name, status, visibility, created_by, created_at, updated_at) VALUES ('p-b', 'Loft conversion', 'active', 'everyone', ?, '2026-08-01T09:00:00Z', '2026-08-01T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES ('i-b', 'p-b', 'Sign off the steels', 0, ?, '2026-08-01T09:00:00Z', '2026-08-01T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES ('x-bad', 'p-a', 'i-b', ?, '2026-08-05T09:00:00Z')",
+          "params": [
+            "{{kid}}"
+          ],
+          "expect": {
+            "errorIncludes": "FOREIGN KEY constraint failed"
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES ('x-ok', 'p-b', 'i-b', ?, '2026-08-05T09:00:00Z')",
+          "params": [
+            "{{kid}}"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id, project_id, item_id FROM app_projects__checklist_completions",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "id": "x-ok",
+                "project_id": "p-b",
+                "item_id": "i-b"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a child writes only their own child rows, an adult writes either, and a write survives losing sight of the parent",
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__projects (id, name, status, visibility, created_by, created_at, updated_at) VALUES ('p1', 'Treehouse build', 'active', 'everyone', ?, '2026-08-01T09:00:00Z', '2026-08-01T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, sort_order, created_by, created_at, updated_at) VALUES ('b-grown', 'p1', 'Posts', 12000, 0, ?, '2026-08-02T09:00:00Z', '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, sort_order, created_by, created_at, updated_at) VALUES ('b-kid', 'p1', 'Rope ladder', 3000, 1, ?, '2026-08-02T10:00:00Z', '2026-08-02T10:00:00Z')",
+          "params": [
+            "{{kid}}"
+          ],
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "UPDATE app_projects__budget_items SET estimated_cents = 999 WHERE id = 'b-grown'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id, estimated_cents FROM app_projects__budget_items WHERE id = 'b-grown'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "estimated_cents": 12000
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "UPDATE app_projects__budget_items SET estimated_cents = 5000 WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id, estimated_cents FROM app_projects__budget_items WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "estimated_cents": 5000
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "UPDATE app_projects__budget_items SET estimated_cents = 7000 WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id, estimated_cents FROM app_projects__budget_items WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "estimated_cents": 7000
+              }
+            ]
+          }
+        },
+        {
+          "action": "seedRaw",
+          "sql": "UPDATE app_projects__projects SET visibility = 'adults' WHERE id = 'p1'"
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_projects__budget_items WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "UPDATE app_projects__budget_items SET estimated_cents = 8000 WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id, estimated_cents FROM app_projects__budget_items WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "estimated_cents": 8000
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "an adults-only project hides all four of its child tables from a child and none of them from an adult",
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__projects (id, name, status, visibility, created_by, created_at, updated_at) VALUES ('p-adults', 'Remortgage', 'active', 'adults', ?, '2026-08-01T09:00:00Z', '2026-08-01T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, sort_order, created_by, created_at, updated_at) VALUES ('ab-1', 'p-adults', 'Broker fee', 50000, 0, ?, '2026-08-02T09:00:00Z', '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES ('ac-1', 'p-adults', 'Book the valuation', 0, ?, '2026-08-02T09:00:00Z', '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES ('ax-1', 'p-adults', 'ac-1', ?, '2026-08-03T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES ('an-1', 'p-adults', 'Fixed for five years', ?, '2026-08-03T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_projects__projects WHERE id = 'p-adults'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_projects__budget_items WHERE project_id = 'p-adults'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_projects__checklist_items WHERE project_id = 'p-adults'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_projects__checklist_completions WHERE project_id = 'p-adults'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_projects__notes WHERE project_id = 'p-adults'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__budget_items WHERE project_id = 'p-adults'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__checklist_items WHERE project_id = 'p-adults'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__checklist_completions WHERE project_id = 'p-adults'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__notes WHERE project_id = 'p-adults'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "only the owner may rewrite a project's visibility, and nobody may rewrite its provenance columns",
+      "members": {
+        "owner": "adult",
+        "other": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__projects (id, name, status, visibility, created_by, created_at, updated_at) VALUES ('p-vis', 'Kitchen island', 'planning', 'everyone', ?, '2026-08-01T09:00:00Z', '2026-08-01T09:00:00Z')",
+          "params": [
+            "{{owner}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "other",
+          "sql": "UPDATE app_projects__projects SET visibility = 'private' WHERE id = 'p-vis'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "other",
+          "sql": "UPDATE app_projects__projects SET status = 'active' WHERE id = 'p-vis'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "SELECT id, status, visibility FROM app_projects__projects WHERE id = 'p-vis'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "status": "active",
+                "visibility": "everyone"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "UPDATE app_projects__projects SET visibility = 'adults' WHERE id = 'p-vis'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "SELECT id, visibility FROM app_projects__projects WHERE id = 'p-vis'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "visibility": "adults"
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "UPDATE app_projects__projects SET created_by = ? WHERE id = 'p-vis'",
+          "params": [
+            "{{other}}"
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "UPDATE app_projects__projects SET source_event_id = 'forged' WHERE id = 'p-vis'",
+          "expect": {
+            "status": 403
+          }
+        }
+      ]
+    },
+    {
+      "name": "a child's private project cannot be deleted by anyone until it is shared",
+      "members": {
+        "grown": "adult",
+        "kid": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__projects (id, name, status, visibility, created_by, created_at, updated_at) VALUES ('p-priv', 'Surprise for Mum', 'planning', 'private', ?, '2026-08-01T09:00:00Z', '2026-08-01T09:00:00Z')",
+          "params": [
+            "{{kid}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_projects__projects WHERE id = 'p-priv'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__projects WHERE id = 'p-priv'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "DELETE FROM app_projects__projects WHERE id = 'p-priv'",
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "DELETE FROM app_projects__projects WHERE id = 'p-priv'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_projects__projects WHERE id = 'p-priv'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "UPDATE app_projects__projects SET visibility = 'everyone' WHERE id = 'p-priv'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "DELETE FROM app_projects__projects WHERE id = 'p-priv'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_projects__projects WHERE id = 'p-priv'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        }
+      ]
+    }
+  ]
+}
