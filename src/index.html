@@ -989,7 +989,7 @@ function renderProject(project) {
           · ${esc(VISIBILITY_LABELS[project.visibility] ?? project.visibility)}
         </p>
       </div>
-      ${canEdit ? `<button class="btn btn-sm" type="button" onclick="openEditProject()">Edit</button>` : ""}
+      ${canEdit ? `<button class="btn btn-sm" type="button" onclick="openEditProject()" data-testid="edit-project">Edit</button>` : ""}
     </div>
 
     <div class="card">
@@ -1061,8 +1061,10 @@ function renderBudgetTab(project) {
       <td class="amount-col">${esc(fmtDollars(item.actual_cents))}</td>
       <td class="actions-col">
         ${canEditChild(item, project, ME) ? `
-          <button class="btn btn-sm" type="button" onclick="openEditBudgetItem(${jsArg(item.id)})">Edit</button>
-          <button class="btn-quiet-danger" type="button" onclick="removeBudgetItem(${jsArg(item.id)})">Delete</button>
+          <button class="btn btn-sm" type="button" onclick="openEditBudgetItem(${jsArg(item.id)})"
+                  data-testid="budget-edit" data-item-id="${esc(item.id)}">Edit</button>
+          <button class="btn-quiet-danger" type="button" onclick="removeBudgetItem(${jsArg(item.id)})"
+                  data-testid="budget-delete" data-item-id="${esc(item.id)}">Delete</button>
         ` : ""}
       </td>
     </tr>
@@ -1184,11 +1186,14 @@ function renderPhotosTab(project) {
 }
 
 // ── Modal ────────────────────────────────────────────────────────────────────
-function openModal(html) {
+// `name` is the dialog's identity for a test: this app has five modals, and a
+// selector that waits on "any modal" waits on the wrong one as soon as a
+// scenario opens two in a row.
+function openModal(html, name) {
   closeModal();
   modalEl = document.createElement("div");
   modalEl.className = "modal-backdrop";
-  modalEl.innerHTML = `<div class="modal">${html}</div>`;
+  modalEl.innerHTML = `<div class="modal"${name ? ` data-testid="${esc(name)}"` : ""}>${html}</div>`;
   modalEl.addEventListener("click", e => { if (e.target === modalEl) closeModal(); });
   document.body.appendChild(modalEl);
 }
@@ -1224,7 +1229,7 @@ function projectForm(project) {
     <div class="field-row">
       ${field("f-budget", "Budget (optional)", `<input id="f-budget" type="number" min="0" step="0.01" placeholder="0.00" value="${p.budget_cap_cents ? esc(centsInput(p.budget_cap_cents)) : ""}" />`)}
       ${(!project || isOwner(project))
-        ? field("f-visibility", "Who can see it", `<select id="f-visibility">${visibilityChoicesFor(ME, project).map(v => `<option value="${esc(v)}"${(p.visibility ?? "adults") === v ? " selected" : ""}>${esc(VISIBILITY_LABELS[v])}</option>`).join("")}</select>`
+        ? field("f-visibility", "Who can see it", `<select id="f-visibility" data-testid="field-visibility">${visibilityChoicesFor(ME, project).map(v => `<option value="${esc(v)}"${(p.visibility ?? "adults") === v ? " selected" : ""}>${esc(VISIBILITY_LABELS[v])}</option>`).join("")}</select>`
             + (isUndeletableWhilePrivate(project, ME)
                 ? `<p class="muted tiny" style="margin:6px 0 0">While this is "Only me" it cannot be deleted — an adult has to remove it, and they cannot see it. Share it to have it removed.</p>`
                 : ""))
@@ -1232,10 +1237,10 @@ function projectForm(project) {
         // as read-only rather than as a control whose every use would be
         // refused. A disabled <select> would do as much, but stating who does
         // own it is the part that answers the user's next question.
-        : field("f-visibility", "Who can see it", `<input id="f-visibility" type="hidden" value="${esc(p.visibility ?? "adults")}" /><p class="muted tiny" style="margin:0">${esc(VISIBILITY_LABELS[p.visibility] ?? p.visibility)} · only ${esc(memberName(p.created_by))} can change this</p>`)}
+        : field("f-visibility", "Who can see it", `<input id="f-visibility" type="hidden" value="${esc(p.visibility ?? "adults")}" /><p class="muted tiny" style="margin:0" data-testid="visibility-readonly">${esc(VISIBILITY_LABELS[p.visibility] ?? p.visibility)} · only ${esc(memberName(p.created_by))} can change this</p>`)}
     </div>
     <div class="modal-actions">
-      ${project && canDeleteProject(project, ME) ? `<button class="btn btn-quiet-danger" type="button" onclick="removeProject()">Delete project</button>` : ""}
+      ${project && canDeleteProject(project, ME) ? `<button class="btn btn-quiet-danger" type="button" onclick="removeProject()" data-testid="delete-project">Delete project</button>` : ""}
       <button class="btn" type="button" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" type="button" onclick="submitProject(${project ? "true" : "false"})">${project ? "Save" : "Create project"}</button>
     </div>
@@ -1873,42 +1878,42 @@ window.loadMoreFor = function(key) {
 };
 
 window.openNewProject = function() {
-  openModal(projectForm(null));
+  openModal(projectForm(null), "project-create-modal");
   setTimeout(() => document.getElementById("f-name")?.focus(), 50);
 };
 window.openEditProject = function() {
   const project = currentProject();
   if (!project || !canEditProject(project, ME)) return;
-  openModal(projectForm(project));
+  openModal(projectForm(project), "project-edit-modal");
 };
 window.submitProject = function(isEdit) { saveProject(isEdit); };
 window.removeProject = function() { deleteProject(); };
 
 window.openNewBudgetItem = function() {
-  openModal(budgetItemForm(null));
+  openModal(budgetItemForm(null), "budget-item-modal");
   setTimeout(() => document.getElementById("f-label")?.focus(), 50);
 };
 window.openEditBudgetItem = function(id) {
   const item = budget.find(b => b.id === id);
-  if (item) openModal(budgetItemForm(item));
+  if (item) openModal(budgetItemForm(item), "budget-item-modal");
 };
 window.submitBudgetItem = function(id) { saveBudgetItem(id); };
 window.removeBudgetItem = function(id) { deleteBudgetItem(id); };
 
 window.openNewChecklistItem = function() {
-  openModal(checklistItemForm(null));
+  openModal(checklistItemForm(null), "checklist-item-modal");
   setTimeout(() => document.getElementById("f-title")?.focus(), 50);
 };
 window.openEditChecklistItem = function(id) {
   const item = checklist.find(c => c.id === id);
-  if (item) openModal(checklistItemForm(item));
+  if (item) openModal(checklistItemForm(item), "checklist-item-modal");
 };
 window.submitChecklistItem = function(id) { saveChecklistItem(id); };
 window.toggleChecklistItem = function(id) { toggleChecklist(id); };
 window.removeChecklistItem = function(id) { deleteChecklistItem(id); };
 
 window.openNewNote = function() {
-  openModal(noteForm());
+  openModal(noteForm(), "note-modal");
   setTimeout(() => document.getElementById("f-body")?.focus(), 50);
 };
 window.submitNote = function() { saveNote(); };
