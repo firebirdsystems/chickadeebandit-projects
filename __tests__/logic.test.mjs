@@ -7,10 +7,10 @@ import {
   navigationGate,
   checklistProgress, sortChecklist, isOverdue, nextDueDate,
   completionIndex, completionOf, isDone,
-  canSeeProject, canEditProject, canDeleteProject, canAddChild, canEditChild,
+  canSeeProject, canEditProject, canDeleteProject, canAddChild, canEditChild, canEditItem,
   canCompleteItem, canUncompleteItem, visibilityChoicesFor, isUndeletableWhilePrivate,
   mayPublish, assignableMembers,
-  configureTenant, isSupervisor,
+  configureTenant, configureMembers, membersFromContext, isSupervisor,
   writeOrThrow, rewriteFileIds, parseFileIds, publishBestEffort,
   toggleDecision, announcedMilestoneIds,
   chunk, D1_MAX_BINDS, CHILD_ORDERS, cursorFrom, keysetClause,
@@ -473,6 +473,47 @@ describe("canAddChild / canEditChild", () => {
   });
 });
 
+describe("canEditItem — budget lines and checklist items answer to the project owner", () => {
+  // `parent_owner_actions: ["update", "delete"]` on both tables: the member who
+  // owns the project may maintain a line someone else added to it.
+  const kidsProject = project({ visibility: "everyone", created_by: "k1" });
+
+  it("lets a child who owns the project edit an adult's line", () => {
+    expect(canEditChild(line({ created_by: "a1" }), kidsProject, CHILD)).toBe(false);
+    expect(canEditItem(line({ created_by: "a1" }), kidsProject, CHILD)).toBe(true);
+  });
+
+  it("gives nothing to a child who does not own the project", () => {
+    const otherChild = { id: "k2", role: "child" };
+    expect(canEditItem(line({ created_by: "a1" }), kidsProject, otherChild)).toBe(false);
+    expect(canEditItem(line({ created_by: "a1" }), project({ visibility: "everyone" }), CHILD)).toBe(false);
+  });
+
+  it("only ever adds to canEditChild", () => {
+    const shared = project({ visibility: "everyone" });
+    expect(canEditItem(line({ created_by: "k1" }), shared, CHILD)).toBe(true);
+    expect(canEditItem(line({ created_by: "k1" }), shared, ADULT)).toBe(true);
+    const priv = project({ visibility: "private", created_by: "a1" });
+    expect(canEditItem(line({ created_by: "k1" }), priv, OTHER_ADULT)).toBe(false);
+  });
+
+  it("follows ownership, not supervision, inside a shared space", () => {
+    configureTenant({ kind: "shared_space", spaceKind: "coparenting", isAdmin: false });
+    try {
+      const mine = project({ visibility: "everyone", created_by: "a2" });
+      expect(canEditItem(line({ created_by: "a1" }), mine, OTHER_ADULT)).toBe(true);
+      expect(canEditItem(line({ created_by: "a1" }), project({ visibility: "everyone" }), OTHER_ADULT)).toBe(false);
+    } finally {
+      configureTenant();
+    }
+  });
+
+  it("refuses with no viewer or no project", () => {
+    expect(canEditItem(line(), project({ visibility: "everyone" }), null)).toBe(false);
+    expect(canEditItem(line(), null, ADULT)).toBe(false);
+  });
+});
+
 describe("canCompleteItem / canUncompleteItem", () => {
   const shared = project({ visibility: "everyone" });
   const completion = { id: "x1", item_id: "c1", done_by: "k1", done_at: "2026-09-04T09:00:00Z" };
@@ -505,53 +546,157 @@ describe("canCompleteItem / canUncompleteItem", () => {
   });
 });
 
-describe("shared spaces — supervision belongs to the steward alone", () => {
-  // Mirrors the hub's `resolvePolicyRoles`: in a space every participant is an
-  // adult, so the `adults_bypass` reach over OTHER members' rows — canEditChild
-  // and canUncompleteItem — collapses onto the steward (`is_admin`). The
-  // CAPABILITY gates (`adults` tier, `delete_adult_only`, visibility choices)
-  // stay "any adult", exactly as the hub applies them to any full member.
+describe("shared spaces — supervision follows the hub's supervisionBypass, not stewardship alone", () => {
+  // Mirrors `resolvePolicyRoles(...).isSupervisor && supervisionBypass`: the
+  // `adults_bypass` reach over OTHER members' rows is every adult in a
+  // household, the steward in a ROSTER space, and nobody in a coparenting or
+  // general space (co-stewards there must not gain a unilateral write over each
+  // other's rows). CAPABILITY gates — the `adults` tier, `delete_adult_only`,
+  // visibility choices — stay "any adult" in every tenant.
   const shared = project({ visibility: "everyone" });
   const completion = { id: "x1", item_id: "c1", done_by: "a1", done_at: "2026-09-04T09:00:00Z" };
-  const inSpace = (isAdmin) => configureTenant({ kind: "shared_space", isAdmin });
+  // The viewer is OTHER_ADULT ("a2") throughout; ADULT ("a1") is someone else.
+  const inSpace = (spaceKind, isAdmin) => configureTenant({ kind: "shared_space", spaceKind, isAdmin, viewerId: "a2" });
 
   afterEach(() => configureTenant());
 
-  it("isSupervisor is every adult in a household, the steward alone in a space", () => {
+  it("isSupervisor: every adult in a household", () => {
     expect(isSupervisor(ADULT)).toBe(true);
     expect(isSupervisor(CHILD)).toBe(false);
-    inSpace(false);
-    expect(isSupervisor(ADULT)).toBe(false);
-    inSpace(true);
-    expect(isSupervisor(ADULT)).toBe(true);
     expect(isSupervisor(null)).toBe(false);
   });
 
-  it("a non-steward adult loses the bypass over another member's child row", () => {
-    inSpace(false);
-    expect(canEditChild(line({ created_by: "a1" }), shared, OTHER_ADULT)).toBe(false);
-    expect(canUncompleteItem(completion, shared, OTHER_ADULT)).toBe(false);
+  it("isSupervisor: the roster steward alone", () => {
+    inSpace("roster", true);
+    expect(isSupervisor(OTHER_ADULT)).toBe(true);
+    expect(isSupervisor(ADULT)).toBe(false);
+    inSpace("roster", false);
+    expect(isSupervisor(OTHER_ADULT)).toBe(false);
   });
 
-  it("the non-steward keeps their own rows — the bypass only ever ADDED", () => {
-    inSpace(false);
-    expect(canEditChild(line({ created_by: "a2" }), shared, OTHER_ADULT)).toBe(true);
-    expect(canUncompleteItem({ ...completion, done_by: "a2" }, shared, OTHER_ADULT)).toBe(true);
+  it("isSupervisor: a roster steward named by family.members counts, one without a login does not", () => {
+    inSpace("roster", false);
+    configureMembers([
+      { id: "a1", role: "adult", isAdmin: true, hasLogin: true },
+      { id: "a3", role: "adult", isAdmin: true, hasLogin: false },
+    ]);
+    expect(isSupervisor(ADULT)).toBe(true);
+    expect(isSupervisor({ id: "a3", role: "adult" })).toBe(false);
+    expect(isSupervisor(OTHER_ADULT)).toBe(false);
   });
 
-  it("the steward keeps the bypass, still bounded by what they can see", () => {
-    inSpace(true);
+  for (const spaceKind of ["coparenting", "general"]) {
+    it(`isSupervisor: nobody in a ${spaceKind} space, the steward included`, () => {
+      inSpace(spaceKind, true);
+      expect(isSupervisor(OTHER_ADULT)).toBe(false);
+      expect(canEditChild(line({ created_by: "a1" }), shared, OTHER_ADULT)).toBe(false);
+      expect(canUncompleteItem(completion, shared, OTHER_ADULT)).toBe(false);
+      inSpace(spaceKind, false);
+      expect(isSupervisor(OTHER_ADULT)).toBe(false);
+    });
+
+    it(`a ${spaceKind} space keeps a member's own rows — the bypass only ever ADDED`, () => {
+      inSpace(spaceKind, true);
+      expect(canEditChild(line({ created_by: "a2" }), shared, OTHER_ADULT)).toBe(true);
+      expect(canUncompleteItem({ ...completion, done_by: "a2" }, shared, OTHER_ADULT)).toBe(true);
+    });
+
+    it(`a ${spaceKind} space still lets any adult edit and delete a project they can see (write_visibility_scoped)`, () => {
+      inSpace(spaceKind, false);
+      expect(canEditProject(shared, OTHER_ADULT)).toBe(true);
+      expect(canDeleteProject(shared, OTHER_ADULT)).toBe(true);
+    });
+  }
+
+  it("a space whose kind is missing is treated as general, as the hub does", () => {
+    inSpace(undefined, true);
+    expect(isSupervisor(OTHER_ADULT)).toBe(false);
+    inSpace("something-new", true);
+    expect(isSupervisor(OTHER_ADULT)).toBe(false);
+  });
+
+  it("the roster steward keeps the bypass, still bounded by what they can see", () => {
+    inSpace("roster", true);
     expect(canEditChild(line({ created_by: "a1" }), shared, OTHER_ADULT)).toBe(true);
     expect(canUncompleteItem(completion, shared, OTHER_ADULT)).toBe(true);
     const priv = project({ visibility: "private", created_by: "a1" });
     expect(canEditChild(line({ created_by: "a1" }), priv, OTHER_ADULT)).toBe(false);
   });
 
+  it("a roster non-steward sees only the steward's shared projects once the roster is known", () => {
+    inSpace("roster", false);
+    const participantsProject = project({ visibility: "everyone", created_by: "k9" });
+    const stewardsProject = project({ visibility: "everyone", created_by: "a1" });
+    // Unknown roster: nothing is hidden — the viewer's rows already came
+    // through the hub's filter, and an empty list while loading is worse.
+    expect(canSeeProject(participantsProject, OTHER_ADULT)).toBe(true);
+    configureMembers([{ id: "a1", role: "adult", isAdmin: true }, { id: "a2", role: "adult" }, { id: "k9", role: "adult" }]);
+    expect(canSeeProject(stewardsProject, OTHER_ADULT)).toBe(true);
+    expect(canSeeProject(participantsProject, OTHER_ADULT)).toBe(false);
+    expect(canSeeProject(project({ visibility: "everyone", created_by: "a2" }), OTHER_ADULT)).toBe(true);
+    expect(canAddChild(participantsProject, OTHER_ADULT)).toBe(false);
+  });
+
+  it("the roster steward sees every shared project", () => {
+    inSpace("roster", true);
+    configureMembers([{ id: "a2", role: "adult", isAdmin: true }, { id: "k9", role: "adult" }]);
+    expect(canSeeProject(project({ visibility: "everyone", created_by: "k9" }), OTHER_ADULT)).toBe(true);
+  });
+
+  it("assignableMembers in a roster offers only members who can open the project", () => {
+    // The steward assigning an item on a participant's project: another
+    // participant cannot read it, so they must not be offered — the assignment
+    // event would otherwise carry the project's name and item to them.
+    inSpace("roster", true);
+    const roster = [
+      { id: "a2", role: "adult", isAdmin: true },
+      { id: "k8", role: "adult" },
+      { id: "k9", role: "adult" },
+    ];
+    configureMembers(roster);
+    const participantsProject = project({ visibility: "everyone", created_by: "k8" });
+    expect(assignableMembers(participantsProject, roster).map(m => m.id)).toEqual(["a2", "k8"]);
+    const stewardsProject = project({ visibility: "everyone", created_by: "a2" });
+    expect(assignableMembers(stewardsProject, roster).map(m => m.id)).toEqual(["a2", "k8", "k9"]);
+  });
+
+  it("the loaded roster outranks the viewer's session flag — a demoted steward loses the reach", () => {
+    inSpace("roster", true);
+    expect(isSupervisor(OTHER_ADULT)).toBe(true);           // roster not loaded: session flag stands in
+    configureMembers([{ id: "a1", role: "adult", isAdmin: true }, { id: "a2", role: "adult", isAdmin: false }]);
+    expect(isSupervisor(OTHER_ADULT)).toBe(false);
+    expect(canEditProject(project({ visibility: "everyone", created_by: "a1" }), OTHER_ADULT)).toBe(false);
+  });
+
+  it("a coparenting space applies no roster read rule", () => {
+    inSpace("coparenting", false);
+    configureMembers([{ id: "a1", role: "adult", isAdmin: true }, { id: "k9", role: "adult" }]);
+    expect(canSeeProject(project({ visibility: "everyone", created_by: "k9" }), OTHER_ADULT)).toBe(true);
+  });
+
+  it("a roster non-steward reads the steward's shared project but edits and deletes only their own", () => {
+    inSpace("roster", false);
+    expect(canSeeProject(shared, OTHER_ADULT)).toBe(true);
+    expect(canEditProject(shared, OTHER_ADULT)).toBe(false);
+    expect(canDeleteProject(shared, OTHER_ADULT)).toBe(false);
+    const mine = project({ visibility: "everyone", created_by: "a2" });
+    expect(canEditProject(mine, OTHER_ADULT)).toBe(true);
+    expect(canDeleteProject(mine, OTHER_ADULT)).toBe(true);
+    // Adding to the steward's project is an INSERT, which collapse leaves open.
+    expect(canAddChild(shared, OTHER_ADULT)).toBe(true);
+  });
+
+  it("the roster steward edits any project they can see", () => {
+    inSpace("roster", true);
+    expect(canEditProject(project({ visibility: "everyone", created_by: "k9" }), OTHER_ADULT)).toBe(true);
+  });
+
   it("capability gates are untouched by the tenant kind", () => {
-    inSpace(false);
-    expect(canSeeProject(project({ visibility: "adults" }), OTHER_ADULT)).toBe(true);
-    expect(canDeleteProject(shared, OTHER_ADULT)).toBe(true);
-    expect(visibilityChoicesFor(OTHER_ADULT, shared)).toEqual(["everyone", "adults", "private"]);
+    for (const spaceKind of ["roster", "coparenting", "general"]) {
+      inSpace(spaceKind, false);
+      expect(canSeeProject(project({ visibility: "adults" }), OTHER_ADULT)).toBe(true);
+      expect(visibilityChoicesFor(OTHER_ADULT, shared)).toEqual(["everyone", "adults", "private"]);
+    }
   });
 
   it("an unknown tenant kind falls back to household semantics", () => {
@@ -1145,5 +1290,29 @@ describe("loadProjectTail", () => {
     await loadProjectTail({ db, sql: "S", pageSize: 5 }, [], rows => seen.push(rows));
     expect(seen).toEqual([]);
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("membersFromContext — a failed roster read is not an empty roster", () => {
+  const roster = [{ id: "a1", role: "adult", isAdmin: true }];
+
+  it("returns the members of a resolved key", () => {
+    expect(membersFromContext(true, { "family.members": roster })).toEqual(roster);
+    expect(membersFromContext(true, { "family.members": [] })).toEqual([]);
+  });
+
+  it("throws when the hub names the key in $errors, even with a value present", () => {
+    expect(() => membersFromContext(true, { $errors: ["family.members"] })).toThrow();
+    expect(() => membersFromContext(true, { "family.members": roster, $errors: ["family.members"] })).toThrow();
+  });
+
+  it("ignores $errors for other keys", () => {
+    expect(membersFromContext(true, { "family.members": roster, $errors: ["family.calendar"] })).toEqual(roster);
+  });
+
+  it("throws on a non-OK response, a missing key or an unreadable body", () => {
+    expect(() => membersFromContext(false, { error: "too large" })).toThrow();
+    expect(() => membersFromContext(true, {})).toThrow();
+    expect(() => membersFromContext(true, null)).toThrow();
   });
 });

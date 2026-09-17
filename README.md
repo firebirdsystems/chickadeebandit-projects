@@ -43,6 +43,14 @@ children as before. Note the default is the **inverse** of `owner_only`'s
 `adults_bypass`, which is on unless disabled; on `inherit_visibility` it is off
 unless declared. `canEditChild` / `canUncompleteItem` in `src/logic.js` mirror it.
 
+**Budget lines and checklist items also answer to the project's owner.** Both
+tables declare `parent_owner_actions: ["update", "delete"]`, so a teenager who
+owns a project can correct or remove a line an adult added to it — otherwise the
+owner of the record was the one member who could not maintain it. `notes` and
+`checklist_completions` do not opt in: a logged decision and a tick are one
+person's own contribution. `canEditItem` mirrors it, and ownership reaches only
+that project's rows. Column ACLs still apply on the widened path.
+
 **Structural columns are locked.** `projects` uses `write_visibility_scoped`, so
 anyone who can *see* a project may edit it. Without `column_write_acls` that also
 meant rewriting `created_by` to yourself and flipping `visibility` to `private` —

@@ -10,25 +10,98 @@ export { isAdult };
 // The manifest speaks household vocabulary, and "adult" conflates two things
 // the hub keeps apart (`policy-roles.ts`): CAPABILITY — the `adults` visibility
 // tier, `delete_adult_only` — which any full member has in either tenant kind,
-// and SUPERVISION — the `adults_bypass` reach over OTHER members' rows — which
-// in a shared space belongs to the steward (`is_admin`) alone, because there
-// every participant is an adult and "any adult supervises" would mean everyone.
+// and SUPERVISION — the `adults_bypass` reach over OTHER members' rows.
+//
+// Supervision is narrower than "the steward in a space". The hub applies the
+// bypass only where one authority supervises (`supervisionBypass` in
+// app-db-policies): every adult in a household, the steward in a ROSTER space.
+// A coparenting space has none by design — its co-stewards are adversarial, so
+// one parent never gains a unilateral write over the other's rows — and a
+// general space starts closed too. A roster also collapses a non-steward's
+// project WRITES to their own projects: they read the steward's broadcast
+// rows but may not mutate them.
+//
 // `isAdult(me)` stays the capability gate; `isSupervisor(me)` is the bypass
-// gate, and index.html configures it from the hub's `__TENANT_KIND` /
-// `__IS_ADMIN` globals. Absent configuration it is a household.
+// gate. index.html configures both from the hub's `__TENANT_KIND` /
+// `__SPACE_KIND` / `__IS_ADMIN` globals. Absent configuration it is a
+// household; a space of unknown kind is treated as `general`, as the hub does.
 
-let TENANT = { kind: "household", isAdmin: false };
+let TENANT = { kind: "household", spaceKind: null, isAdmin: false, viewerId: null };
+/** Roster stewards by member id, or null until `family.members` has loaded. */
+let ROSTER_STEWARDS = null;
 
 /** Called once by index.html; tests call it to stand in a space. */
-export function configureTenant({ kind = "household", isAdmin = false } = {}) {
-  TENANT = { kind: kind === "shared_space" ? "shared_space" : "household", isAdmin: isAdmin === true };
+export function configureTenant({ kind = "household", spaceKind = null, isAdmin = false, viewerId = null } = {}) {
+  const shared = kind === "shared_space";
+  TENANT = {
+    kind: shared ? "shared_space" : "household",
+    spaceKind: shared ? (spaceKind === "roster" || spaceKind === "coparenting" ? spaceKind : "general") : null,
+    isAdmin: isAdmin === true,
+    viewerId: viewerId ?? null,
+  };
+  ROSTER_STEWARDS = null;
 }
 
-/** Mirrors `resolvePolicyRoles(...).isSupervisor`: every adult in a household,
- *  the steward alone in a shared space. */
+/**
+ * Called once `family.members` loads. The hub treats a roster member as the
+ * steward when their row is an admin with a linked account, so a member with
+ * `hasLogin: false` is not one. Until this runs the steward set is UNKNOWN,
+ * and the roster read rule below is not applied: every project the viewer holds
+ * already came back through the hub's own filter, and hiding them while the
+ * roster loads (or after it fails) would empty the list.
+ */
+export function configureMembers(members) {
+  ROSTER_STEWARDS = new Set((members ?? [])
+    .filter(m => m?.isAdmin === true && m.hasLogin !== false)
+    .map(m => m.id));
+}
+
+/**
+ * The member list out of a `/api/context?keys=family.members` response, or a
+ * throw when the read failed. A failed key is NOT an empty roster: the hub
+ * answers a key that failed to resolve with HTTP 200, omits the key, and names
+ * it in `$errors` (context-handler.ts). Treating that as `[]` told the roster
+ * gates "there are no stewards", which hid every project the steward shared.
+ */
+export function membersFromContext(ok, json) {
+  if (!ok) throw new Error("family.members request failed");
+  if (Array.isArray(json?.$errors) && json.$errors.includes("family.members")) {
+    throw new Error("family.members did not resolve");
+  }
+  const members = json?.["family.members"];
+  if (!Array.isArray(members)) throw new Error("family.members missing from the response");
+  return members;
+}
+
+function isRoster() {
+  return TENANT.kind === "shared_space" && TENANT.spaceKind === "roster";
+}
+
+/**
+ * True when `member` is a steward of this roster space. The hub re-derives
+ * stewardship from `family_members` on every statement, ignoring the session,
+ * so the loaded roster outranks the viewer's session flag; that flag stands in
+ * only until the roster arrives. A steward demoted mid-session therefore loses
+ * the controls as soon as the roster loads, rather than keeping buttons the hub
+ * narrows to nothing.
+ */
+function isRosterSteward(member) {
+  if (!member || !isRoster()) return false;
+  if (ROSTER_STEWARDS) return ROSTER_STEWARDS.has(member.id);
+  return member.id === TENANT.viewerId && TENANT.isAdmin;
+}
+
+/** True for a non-steward participant of a roster space. */
+function inRosterCollapse(member) {
+  return isRoster() && !isRosterSteward(member);
+}
+
+/** Mirrors `resolvePolicyRoles(...).isSupervisor && supervisionBypass`: every
+ *  adult in a household, the steward in a roster space, nobody elsewhere. */
 export function isSupervisor(me) {
   if (!me) return false;
-  return TENANT.kind === "shared_space" ? TENANT.isAdmin : isAdult(me);
+  if (TENANT.kind === "household") return isAdult(me);
+  return isRosterSteward(me);
 }
 
 export const STATUSES = ["planning", "active", "on_hold", "done"];
@@ -347,14 +420,20 @@ export function nextDueDate(items, byItem) {
 
 /**
  * Mirrors the `owner_or_visibility` policy on `projects`: the owner always,
- * `everyone` rows for anyone, `adults` rows for adults.
+ * `everyone` rows for anyone, `adults` rows for adults — and, in a roster, only
+ * the steward's shared rows for a non-steward.
  */
 export function canSeeProject(project, me) {
   if (!project) return false;
   if (me && project.created_by === me.id) return true;
-  if (project.visibility === "everyone") return true;
-  if (project.visibility === "adults") return isAdult(me);
-  return false;
+  const shared = project.visibility === "everyone"
+    || (project.visibility === "adults" && isAdult(me));
+  if (!shared) return false;
+  // Roster star topology: a non-steward sees shared projects only when the
+  // steward wrote them — another participant's shared project stays with them.
+  // Skipped while the steward set is unknown (see configureMembers).
+  if (ROSTER_STEWARDS && inRosterCollapse(me)) return isRosterSteward({ id: project.created_by });
+  return true;
 }
 
 /**
@@ -363,7 +442,10 @@ export function canSeeProject(project, me) {
  * see, and no one can blind-write a private project they cannot even read.
  */
 export function canEditProject(project, me) {
-  return canSeeProject(project, me);
+  if (!canSeeProject(project, me)) return false;
+  // Roster collapse: a non-steward writes only projects they created.
+  if (inRosterCollapse(me)) return !!me && project.created_by === me.id;
+  return true;
 }
 
 /** `delete_adult_only: true` — a child may edit a shared project but not destroy it. */
@@ -415,8 +497,9 @@ export function canAddChild(project, me) {
 
 /**
  * Changing or deleting a child row is restricted to the member who wrote it,
- * plus supervisors — every adult in a household, the steward alone in a shared
- * space (see `isSupervisor`): all four child tables declare `adults_bypass:
+ * plus supervisors — every adult in a household, the steward in a roster space,
+ * nobody in a coparenting or general space (see `isSupervisor`): all four child
+ * tables declare `adults_bypass:
  * true`, which is `inherit_visibility`'s opt-in supervision over another
  * member's row.
  *
@@ -436,6 +519,25 @@ export function canEditChild(row, project, me) {
   if (!canSeeProject(project, me)) return false;
   if (isSupervisor(me)) return true;
   return !!me && row?.created_by === me.id;
+}
+
+/**
+ * Budget lines and checklist items also answer to the PROJECT's owner:
+ * both tables declare `parent_owner_actions: ["update", "delete"]`, so a
+ * teenager who owns a project can correct or remove a line an adult added to
+ * it. Without it the owner of the record was the one member who could not
+ * maintain it.
+ *
+ * Deliberately NOT on `notes` or `checklist_completions`. A logged decision
+ * and a tick are one person's own contribution; owning the project does not
+ * make them yours to rewrite. Those rows keep `canEditChild`.
+ *
+ * Ownership is enough on its own — an owner always sees their own project, and
+ * the hub checks the parent row's `created_by`, not the viewer's role.
+ */
+export function canEditItem(row, project, me) {
+  if (canEditChild(row, project, me)) return true;
+  return !!me && !!project && project.created_by === me.id;
 }
 
 /**

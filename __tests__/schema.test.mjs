@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { describe, it, expect } from "vitest";
-import { canEditChild, canUncompleteItem, CHILD_ORDERS } from "../src/logic.js";
+import { canEditChild, canEditItem, canUncompleteItem, CHILD_ORDERS } from "../src/logic.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
@@ -450,6 +450,25 @@ describe("the client gates and the manifest cannot drift apart", () => {
       canEditChild({ created_by: CHILD.id }, shared, ADULT)
       || canUncompleteItem({ done_by: CHILD.id }, shared, ADULT),
     ).toBe(true);
+  });
+
+  it("declares parent_owner_actions on exactly the tables whose rows use canEditItem", () => {
+    // canEditItem lets a project owner edit and delete other members' rows. It
+    // is rendered on budget and checklist rows only; notes and completions stay
+    // writer-plus-supervisor. A table on either side of that line without the
+    // other is a 200/0-row Edit button or an unexplained widened policy.
+    const ownerGated = childTables
+      .filter(([, p]) => p.parent_owner_actions !== undefined)
+      .map(([table]) => table)
+      .sort();
+    expect(ownerGated).toEqual(["budget_items", "checklist_items"]);
+    for (const table of ownerGated) {
+      expect(manifest.row_policies[table].parent_owner_actions).toEqual(["update", "delete"]);
+    }
+    const kidsProject = { ...shared, created_by: CHILD.id };
+    expect(canEditItem({ created_by: ADULT.id }, kidsProject, CHILD)).toBe(true);
+    expect((html.match(/canEditItem\(item, project, ME\)/g) ?? []).length).toBe(2);
+    expect(html).toMatch(/canEditChild\(note, project, ME\)/);
   });
 
   it("still refuses a child on another member's row, bypass or not", () => {

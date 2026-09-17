@@ -184,7 +184,7 @@ import {
   chunk, D1_MAX_BINDS, CHILD_ORDERS, cursorFrom, keysetClause,
   mergeById, mergeSorted, compareBudgetRows, compareNoteRows, compareProjectRows,
   shouldRepaint, loadProjectTail,
-  canSeeProject, canEditProject, canDeleteProject, canAddChild, canEditChild,
+  configureMembers, membersFromContext, canSeeProject, canEditProject, canDeleteProject, canAddChild, canEditChild, canEditItem,
   canCompleteItem, canUncompleteItem, visibilityChoicesFor, isUndeletableWhilePrivate,
   searchableFields, configureTenant,
 } from "./logic.js";
@@ -203,11 +203,12 @@ const files   = createFilesHelper(window.__FILES_URL ?? "");
  *  as the demo project's owner is what makes the demo show its own data. */
 const ME = window.__CURRENT_MEMBER ?? (DB ? null : { id: "demo-1", name: "Alex", role: "adult" });
 
-/** In a shared space every member is an adult, so the `adults_bypass` reach over
- *  other members' rows belongs to the steward alone — the gates in logic.js
- *  must know which tenant they are in, or a non-steward is shown edit and
- *  delete controls the hub then refuses. Unset globals mean a household. */
-configureTenant({ kind: window.__TENANT_KIND, isAdmin: window.__IS_ADMIN });
+/** The `adults_bypass` reach over other members' rows depends on the tenant:
+ *  every adult in a household, the roster steward, nobody in a coparenting or
+ *  general space. The gates in logic.js must know which, or a member is shown
+ *  edit and delete controls the hub then narrows to nothing. Unset globals mean
+ *  a household. */
+configureTenant({ kind: window.__TENANT_KIND, spaceKind: window.__SPACE_KIND, isAdmin: window.__IS_ADMIN, viewerId: ME?.id });
 
 // ── First-render reads ───────────────────────────────────────────────────────
 // Declared once here and mirrored byte-for-byte in manifest.preload, so the hub
@@ -506,8 +507,9 @@ async function loadMembers() {
   } else {
     try {
       const res = await fetch(`${CONTEXT}?keys=family.members`);
-      members = ((await res.json())["family.members"]) ?? [];
+      members = membersFromContext(res.ok, await res.json().catch(() => null));
       membersLoaded = true;
+      configureMembers(members);
     } catch {
       // A FAILED roster is not an empty one. Leaving the flag false keeps the
       // assignee picker disabled and the current assignee intact, instead of
@@ -1060,7 +1062,7 @@ function renderBudgetTab(project) {
       <td class="amount-col">${esc(fmtDollars(item.estimated_cents))}</td>
       <td class="amount-col">${esc(fmtDollars(item.actual_cents))}</td>
       <td class="actions-col">
-        ${canEditChild(item, project, ME) ? `
+        ${canEditItem(item, project, ME) ? `
           <button class="btn btn-sm" type="button" onclick="openEditBudgetItem(${jsArg(item.id)})"
                   data-testid="budget-edit" data-item-id="${esc(item.id)}">Edit</button>
           <button class="btn-quiet-danger" type="button" onclick="removeBudgetItem(${jsArg(item.id)})"
@@ -1119,7 +1121,7 @@ function renderChecklistTab(project) {
             ${overdue ? ` <span class="badge badge-overdue">Overdue</span>` : ""}
           </div>
         </div>
-        ${canEditChild(item, project, ME) ? `
+        ${canEditItem(item, project, ME) ? `
           <div class="row-actions">
             <button class="btn btn-sm" type="button" onclick="openEditChecklistItem(${jsArg(item.id)})">Edit</button>
             <button class="btn-quiet-danger" type="button" onclick="removeChecklistItem(${jsArg(item.id)})">Delete</button>
@@ -1463,7 +1465,7 @@ async function saveBudgetItem(itemId) {
         `UPDATE app_projects__budget_items SET label = ?, vendor_name = ?, estimated_cents = ?,
          actual_cents = ?, purchased = ?, updated_at = ? WHERE id = ?`,
         [label, vendor, estimated, actual, purchased, now, itemId],
-        "Only whoever added this line item can change it.",
+        "Only whoever added this line item, the project's owner or an adult can change it.",
       );
       Object.assign(existing, { label, vendor_name: vendor, estimated_cents: estimated, actual_cents: actual, purchased, updated_at: now });
       updateSummary(project.id, { before: wasWorth, after: { estimated_cents: estimated, actual_cents: actual } });
@@ -1508,7 +1510,7 @@ async function deleteBudgetItem(itemId) {
   if (!ok) return;
   try {
     await dbWrite("DELETE FROM app_projects__budget_items WHERE id = ?", [itemId],
-      "Only whoever added this line item can remove it.");
+      "Only whoever added this line item, the project's owner or an adult can remove it.");
     budget = budget.filter(b => b.id !== itemId);
     updateSummary(project.id, { before: item });
     render();
@@ -1606,7 +1608,7 @@ async function saveChecklistItem(itemId) {
         `UPDATE app_projects__checklist_items SET title = ?, due_date = ?, assignee_id = ?,
          is_milestone = ?, updated_at = ? WHERE id = ?`,
         [title, dueDate, assigneeId, isMilestone, now, itemId],
-        "Only whoever added this item can change it.",
+        "Only whoever added this item, the project's owner or an adult can change it.",
       );
       Object.assign(existing, { title, due_date: dueDate, assignee_id: assigneeId, is_milestone: isMilestone, updated_at: now });
       // `is_milestone` and `due_date` are sort keys, so this edit can move the
@@ -1739,7 +1741,7 @@ async function deleteChecklistItem(itemId) {
   try {
     await dbWrite(
       "DELETE FROM app_projects__checklist_items WHERE id = ?", [itemId],
-      "Only whoever added this item can remove it.",
+      "Only whoever added this item, the project's owner or an adult can remove it.",
     );
     const wasDone = doneIndex().has(itemId);
     checklist = checklist.filter(c => c.id !== itemId);

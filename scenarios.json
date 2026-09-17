@@ -499,6 +499,260 @@
           }
         }
       ]
+    },
+    {
+      "name": "a child who owns a project maintains an adult's budget line and checklist item, but not their note, tick or anyone else's project",
+      "members": {
+        "grown": "adult",
+        "owner": "child",
+        "sibling": "child"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__projects (id, name, status, visibility, created_by, created_at, updated_at) VALUES ('p-kid', 'Science fair', 'active', 'everyone', ?, '2026-08-02T09:00:00Z', '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{owner}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__projects (id, name, status, visibility, created_by, created_at, updated_at) VALUES ('p-grown', 'Shed', 'active', 'everyone', ?, '2026-08-02T09:00:00Z', '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, sort_order, created_by, created_at, updated_at) VALUES ('b-kid', 'p-kid', 'Poster board', 1200, 0, ?, '2026-08-02T09:00:00Z', '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, sort_order, created_by, created_at, updated_at) VALUES ('b-grown', 'p-grown', 'Timber', 20000, 0, ?, '2026-08-02T09:00:00Z', '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES ('i-kid', 'p-kid', 'Print the photos', 0, ?, '2026-08-02T09:00:00Z', '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES ('i-kid-2', 'p-kid', 'Buy glue', 1, ?, '2026-08-02T09:00:00Z', '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES ('x-kid', 'p-kid', 'i-kid', ?, '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES ('n-kid', 'p-kid', 'Use the tri-fold board', ?, '2026-08-02T09:00:00Z')",
+          "params": [
+            "{{grown}}"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "UPDATE app_projects__budget_items SET estimated_cents = 1500 WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id, estimated_cents FROM app_projects__budget_items WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "estimated_cents": 1500
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "sibling",
+          "sql": "UPDATE app_projects__budget_items SET estimated_cents = 1 WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id, estimated_cents FROM app_projects__budget_items WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "estimated_cents": 1500
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "UPDATE app_projects__budget_items SET estimated_cents = 1 WHERE id = 'b-grown'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id, estimated_cents FROM app_projects__budget_items WHERE id = 'b-grown'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [
+              {
+                "estimated_cents": 20000
+              }
+            ]
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "UPDATE app_projects__budget_items SET created_by = ? WHERE id = 'b-kid'",
+          "params": [
+            "{{owner}}"
+          ],
+          "expect": {
+            "status": 403
+          }
+        },
+        {
+          "action": "db",
+          "as": "sibling",
+          "sql": "DELETE FROM app_projects__checklist_items WHERE id = 'i-kid-2'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__checklist_items WHERE id = 'i-kid-2'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "DELETE FROM app_projects__checklist_items WHERE id = 'i-kid-2'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__checklist_items WHERE id = 'i-kid-2'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "DELETE FROM app_projects__checklist_completions WHERE id = 'x-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__checklist_completions WHERE id = 'x-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "DELETE FROM app_projects__notes WHERE id = 'n-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__notes WHERE id = 'n-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 1
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "DELETE FROM app_projects__budget_items WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__budget_items WHERE id = 'b-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "owner",
+          "sql": "DELETE FROM app_projects__checklist_items WHERE id = 'i-kid'",
+          "expect": {
+            "status": 200
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__checklist_items WHERE id = 'i-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        },
+        {
+          "action": "db",
+          "as": "grown",
+          "sql": "SELECT id FROM app_projects__checklist_completions WHERE id = 'x-kid'",
+          "expect": {
+            "status": 200,
+            "rowCount": 0
+          }
+        }
+      ]
     }
   ]
 }
