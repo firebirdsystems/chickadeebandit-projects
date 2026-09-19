@@ -17,11 +17,11 @@
       --accent-hover: var(--hub-primary-hover, #374151);
       --accent-fg: var(--hub-primary-fg, #ffffff);
       --radius: var(--hub-radius, 8px);
-      --red: #b91c1c;
-      --red-soft: #fee2e2;
-      --green: #15803d;
-      --green-soft: #dcfce7;
-      --amber: #854d0e;
+      --red: var(--hub-tint-danger-fg, #b91c1c);
+      --red-soft: var(--hub-tint-danger, #fee2e2);
+      --green: var(--hub-tint-success-fg, #15803d);
+      --green-soft: var(--hub-tint-success, #dcfce7);
+      --amber: var(--hub-tint-warning-fg, #854d0e);
       --amber-soft: #fef9c3;
       --shadow: 0 1px 3px rgba(15, 23, 42, .07);
     }
@@ -96,12 +96,12 @@
     .error { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
 
     .badge { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: .72rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
-    .badge-planning { background: #f3f4f6; color: #6b7280; }
-    .badge-active   { background: #dbeafe; color: #1d4ed8; }
+    .badge-planning { background: var(--bg); color: var(--muted); }
+    .badge-active   { background: var(--hub-tint-info, #dbeafe); color: var(--hub-tint-info-fg, #1d4ed8); }
     .badge-on_hold  { background: var(--amber-soft); color: var(--amber); }
     .badge-done     { background: var(--green-soft); color: var(--green); }
     .badge-over     { background: var(--red-soft); color: var(--red); }
-    .badge-private  { background: #ede9fe; color: #7c3aed; }
+    .badge-private  { background: var(--hub-tint-accent, #ede9fe); color: var(--hub-tint-accent-fg, #7c3aed); }
     .badge-overdue  { background: var(--red-soft); color: var(--red); }
 
     .progress-bar { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; margin-top: 8px; }
