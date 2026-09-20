@@ -1,5 +1,7 @@
 # Projects
 
+A [Chickadee Bandit](https://chickadeebandit.com/app-library/projects) app.
+
 Plan a household project — a renovation, a move, a big purchase — in one place:
 a budget of estimated-versus-actual line items, a checklist with deadlines and
 milestones, photos of how it went, and a log of what you decided and why.
