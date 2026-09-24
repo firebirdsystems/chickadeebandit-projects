@@ -2274,7 +2274,7 @@ Resolution **deliberately bypasses row policies**. The manifest declares the ent
 }
 ```
 
-Basic read-only sharing is **free**. The premium `sharing` capability raises the link/expiry caps and unlocks passwords plus `submit` (external non-members insert one row into a child table). Never put `sharing` in `required_capabilities` — the gate lives inside the share endpoints.
+Basic read-only sharing is always available. The `sharing` capability (included with every live plan; withheld while the plan is inactive) raises the link/expiry caps and unlocks passwords plus `submit` (external non-members insert one row into a child table). Never put `sharing` in `required_capabilities` — the gate lives inside the share endpoints.
 
 ### `feed` — render child rows as entry cards
 
