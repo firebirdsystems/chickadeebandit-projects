@@ -14,10 +14,10 @@ export { isAdult };
 //
 // Supervision is narrower than "the steward in a space". The hub applies the
 // bypass only where one authority supervises (`supervisionBypass` in
-// app-db-policies): every adult in a household, the steward in a ROSTER space.
-// A coparenting space has none by design — its co-stewards are adversarial, so
-// one parent never gains a unilateral write over the other's rows — and a
-// general space starts closed too. A roster also collapses a non-steward's
+// app-db-policies): every adult in a household, the steward in a ROSTER or
+// GENERAL space. A coparenting space has none by design — its co-stewards are
+// adversarial, so one parent never gains a unilateral write over the other's
+// rows. A roster also collapses a non-steward's
 // project WRITES to their own projects: they read the steward's broadcast
 // rows but may not mutate them.
 //
@@ -97,10 +97,13 @@ function inRosterCollapse(member) {
 }
 
 /** Mirrors `resolvePolicyRoles(...).isSupervisor && supervisionBypass`: every
- *  adult in a household, the steward in a roster space, nobody elsewhere. */
+ *  adult in a household, the steward in a roster or general space, nobody in a
+ *  coparenting space. A general space's steward is the admin session, as the
+ *  hub reads it (`isAdmin`), not the roster's linked-account rule. */
 export function isSupervisor(me) {
   if (!me) return false;
   if (TENANT.kind === "household") return isAdult(me);
+  if (TENANT.spaceKind === "general") return me.id === TENANT.viewerId ? TENANT.isAdmin : me.isAdmin === true;
   return isRosterSteward(me);
 }
 

@@ -585,16 +585,26 @@ describe("shared spaces — supervision follows the hub's supervisionBypass, not
     expect(isSupervisor(OTHER_ADULT)).toBe(false);
   });
 
-  for (const spaceKind of ["coparenting", "general"]) {
-    it(`isSupervisor: nobody in a ${spaceKind} space, the steward included`, () => {
-      inSpace(spaceKind, true);
-      expect(isSupervisor(OTHER_ADULT)).toBe(false);
-      expect(canEditChild(line({ created_by: "a1" }), shared, OTHER_ADULT)).toBe(false);
-      expect(canUncompleteItem(completion, shared, OTHER_ADULT)).toBe(false);
-      inSpace(spaceKind, false);
-      expect(isSupervisor(OTHER_ADULT)).toBe(false);
-    });
+  it("isSupervisor: nobody in a coparenting space, the steward included", () => {
+    inSpace("coparenting", true);
+    expect(isSupervisor(OTHER_ADULT)).toBe(false);
+    expect(canEditChild(line({ created_by: "a1" }), shared, OTHER_ADULT)).toBe(false);
+    expect(canUncompleteItem(completion, shared, OTHER_ADULT)).toBe(false);
+    inSpace("coparenting", false);
+    expect(isSupervisor(OTHER_ADULT)).toBe(false);
+  });
 
+  it("isSupervisor: the general-space steward alone", () => {
+    inSpace("general", true);
+    expect(isSupervisor(OTHER_ADULT)).toBe(true);
+    expect(canEditChild(line({ created_by: "a1" }), shared, OTHER_ADULT)).toBe(true);
+    expect(canUncompleteItem(completion, shared, OTHER_ADULT)).toBe(true);
+    inSpace("general", false);
+    expect(isSupervisor(OTHER_ADULT)).toBe(false);
+    expect(canEditChild(line({ created_by: "a1" }), shared, OTHER_ADULT)).toBe(false);
+  });
+
+  for (const spaceKind of ["coparenting", "general"]) {
     it(`a ${spaceKind} space keeps a member's own rows — the bypass only ever ADDED`, () => {
       inSpace(spaceKind, true);
       expect(canEditChild(line({ created_by: "a2" }), shared, OTHER_ADULT)).toBe(true);
@@ -610,8 +620,8 @@ describe("shared spaces — supervision follows the hub's supervisionBypass, not
 
   it("a space whose kind is missing is treated as general, as the hub does", () => {
     inSpace(undefined, true);
-    expect(isSupervisor(OTHER_ADULT)).toBe(false);
-    inSpace("something-new", true);
+    expect(isSupervisor(OTHER_ADULT)).toBe(true);
+    inSpace("something-new", false);
     expect(isSupervisor(OTHER_ADULT)).toBe(false);
   });
 
