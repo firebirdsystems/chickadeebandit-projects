@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Run before pushing: verifies the build and tests pass.
+# Run before pushing: verifies the build and tests pass, then — when a hub
+# checkout sits beside the apps folder — runs the hub's contract suite and
+# runtime exercise against this app.
 # Usage:  bash preflight.sh
 # Hook:   git config core.hooksPath .githooks  (once per clone)
 set -e
@@ -68,41 +70,68 @@ echo ""
 echo "▶ Tests…"
 npm test --prefix "$ROOT"
 
-# ── The contract suite, when a hub checkout is at hand ───────────────────────
+# ── Hub checks ───────────────────────────────────────────────────────────────
+# Both steps below run the hub's own validators against this working tree, and
+# both need a hub checkout beside the apps folder. Without one they skip,
+# loudly: a contributor without the hub must still be able to push, and release
+# CI remains the real gate for the contract suite.
 #
-# The release workflow clones the hub and runs this before it will build or
-# publish, so CI already gates on it. Running it here too is about WHERE the
-# failure lands: the query-plan gate EXPLAINs every declared preload, and an
-# ORDER BY that no index can answer is invisible to `build.mjs` and to the app's
-# own tests — nothing in this repo can EXPLAIN anything, since vitest is its
-# only dependency. Without this, a full table scan is a red CI run instead of a
-# refused push.
-#
-# Skipped, loudly, when no sibling hub checkout exists: a contributor without
-# one must still be able to push, and CI remains the real gate.
-CONTRACT_DIR=""
+# CB_APPS_DIR is the WHOLE apps folder, not this app: cross-app checks resolve
+# emitters, export targets and duplicates from the sibling apps. CB_ONLY_APP
+# narrows what is judged to this app, so another app's broken contract never
+# refuses this push.
+APP="$(basename "$ROOT")"
+APPS_DIR="$(cd "$ROOT/.." && pwd)"
+HUB=""
 for candidate in \
-  "$ROOT/../../chickadeebandit/packages/hub/contract-ci" \
-  "$ROOT/../../../chickadeebandit/packages/hub/contract-ci"
+  "$ROOT/../../chickadeebandit/packages/hub" \
+  "$ROOT/../../../chickadeebandit/packages/hub"
 do
-  [ -d "$candidate" ] && CONTRACT_DIR="$(cd "$candidate" && pwd)" && break
+  [ -d "$candidate" ] && HUB="$(cd "$candidate" && pwd)" && break
 done
+HUB_NODE_MAJOR=22
+node_major="$(node -p 'process.versions.node.split(".")[0]')"
 
-if [ -z "$CONTRACT_DIR" ]; then
-  echo ""
+# ── Contract suite (row policies, migrations, query plans) ───────────────────
+# The release workflow runs this before it will build or publish. Running it
+# here too moves the failure from a red release to a refused push — and some of
+# it nothing in this repo can check: the query-plan gate EXPLAINs every declared
+# preload, and an ORDER BY no index can answer is invisible to build.mjs and to
+# this app's own tests.
+CONTRACT="$HUB/contract-ci"
+echo ""
+if [ -z "$HUB" ]; then
   echo "• Contract suite skipped — no sibling hub checkout found."
   echo "  CI still runs it and will block the release on a failure."
-elif [ ! -d "$CONTRACT_DIR/node_modules" ]; then
-  echo ""
+elif [ "$node_major" -lt "$HUB_NODE_MAJOR" ]; then
+  echo "• Contract suite skipped — it needs Node ${HUB_NODE_MAJOR}+, found $(node -v)."
+  echo "  CI still runs it and will block the release on a failure."
+elif [ ! -f "$CONTRACT/node_modules/.package-lock.json" ]; then
   echo "• Contract suite skipped — runner not installed."
-  echo "  Install it once with:  (cd $CONTRACT_DIR && npm ci)"
+  echo "  Install it once with:  (cd $CONTRACT && npm ci)"
+elif [ "$CONTRACT/package-lock.json" -nt "$CONTRACT/node_modules/.package-lock.json" ]; then
+  # A pull that moves the lockfile leaves the old install in place, and an old
+  # runner can pass what CI's fresh install refuses.
+  echo "• Contract suite skipped — runner is older than its lockfile."
+  echo "  Refresh it with:  (cd $CONTRACT && npm ci)"
 else
-  echo ""
-  echo "▶ Contract suite (row policies, migrations, query plans)…"
-  # CB_APPS_DIR is the apps checkout: the suite validates every app in it, so a
-  # change here that breaks a shared expectation surfaces before the push.
-  ( cd "$CONTRACT_DIR" \
-    && CI=true CB_APPS_DIR="$(cd "$ROOT/.." && pwd)" npx vitest run )
+  echo "▶ Contract suite…"
+  ( cd "$CONTRACT" && CI=true CB_APPS_DIR="$APPS_DIR" CB_ONLY_APP="$APP" npx vitest run )
+fi
+
+# ── Hub runtime exercise ─────────────────────────────────────────────────────
+# App release CI runs only the contract suite; the hub's runtime lanes
+# (scenarios.json, surfaces, automations, member removal, upgrades) otherwise
+# run only in the hub repo's CI, so a broken scenario surfaces on the next hub
+# PR instead of on this push.
+echo ""
+if [ -z "$HUB" ] || [ ! -d "$HUB/node_modules" ]; then
+  echo "• Runtime exercise skipped — no installed hub checkout found."
+elif [ "$node_major" -lt "$HUB_NODE_MAJOR" ]; then
+  echo "• Runtime exercise skipped — it needs Node ${HUB_NODE_MAJOR}+, found $(node -v)."
+else
+  echo "▶ Hub runtime exercise…"
+  ( cd "$HUB" && CB_APPS_DIR="$APPS_DIR" CB_ONLY_APP="$APP" npx vitest run __tests__/app-exercise )
 fi
 
 echo ""
