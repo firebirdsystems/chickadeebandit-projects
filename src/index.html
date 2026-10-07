@@ -92,7 +92,7 @@
     .search-input { width: 100%; border: 1.5px solid var(--border-mid); border-radius: 8px; padding: 9px 11px; font: inherit; background: var(--surface); color: var(--text); }
     .search-input:focus { outline: none; border-color: var(--accent); }
     .empty, .loading { color: var(--muted); text-align: center; padding: 28px 16px; }
-    .empty-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .empty-icon { margin-bottom: 8px; }
     .error { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
 
     .badge { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: .72rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
@@ -169,7 +169,7 @@
 <script type="module">
 import {
   esc, hubConfirm, hubAlert, hubToday, searchMatch, formatRelativeDate,
-  createFilesHelper, createDbHelper, createEventsHelper, logHubActivity,
+  createFilesHelper, createDbHelper, createEventsHelper, logHubActivity, glyph, chickadee,
 } from "/hub-sdk.js";
 import {
   STATUSES, STATUS_LABELS, VISIBILITY_LABELS,
@@ -945,9 +945,9 @@ function visibleProjects() {
 function renderProjectList() {
   const list = visibleProjects();
   if (!list.length) {
-    if (searchQ) return `<div class="card empty"><div class="empty-icon">🔍</div><p>No projects match "${esc(searchQ)}".</p></div>`;
+    if (searchQ) return `<div class="card empty"><div class="empty-icon">${chickadee("searching")}</div><p>No projects match "${esc(searchQ)}".</p></div>`;
     return `<div class="card empty" data-testid="empty-state">
-      <div class="empty-icon">🔨</div>
+      <div class="empty-icon">${chickadee("nest")}</div>
       <p>No projects yet. Start one for the next big thing — a renovation, a move, a trip fund.</p>
     </div>`;
   }
@@ -1111,10 +1111,10 @@ function renderChecklistTab(project) {
         <button class="checkbox${done ? " is-checked" : ""}" type="button"${mayToggle ? "" : " disabled"}
                 aria-label="${done ? "Mark not done" : "Mark done"}"
                 title="${done && !mayToggle ? esc(`Only ${memberName(completion.done_by)} can reopen this`) : ""}"
-                onclick="toggleChecklistItem(${jsArg(item.id)})">✓</button>
+                onclick="toggleChecklistItem(${jsArg(item.id)})">${glyph("tick", { accent: "currentColor" })}</button>
         <div class="list-body">
           <div class="list-label">
-            ${Number(item.is_milestone) === 1 ? `<span class="milestone-flag">🚩</span> ` : ""}${esc(item.title)}
+            ${Number(item.is_milestone) === 1 ? `<span class="milestone-flag">${glyph("flag")}</span> ` : ""}${esc(item.title)}
           </div>
           <div class="item-meta tiny">
             ${esc(meta.join(" · "))}
