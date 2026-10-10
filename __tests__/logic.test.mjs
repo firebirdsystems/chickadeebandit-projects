@@ -12,6 +12,7 @@ import {
   mayPublish, assignableMembers,
   configureTenant, configureMembers, membersFromContext, isSupervisor,
   writeOrThrow, rewriteFileIds, parseFileIds, publishBestEffort,
+  parsePhotoThumbs, tilePhotoId, photoThumbsFor,
   toggleDecision, announcedMilestoneIds,
   chunk, D1_MAX_BINDS, CHILD_ORDERS, cursorFrom, keysetClause,
   mergeById, mergeSorted, compareBudgetRows, compareNoteRows, compareProjectRows,
@@ -866,7 +867,7 @@ describe("rewriteFileIds", () => {
     const db = async (sql, params) => { seen.push({ sql, params }); return { changed: 1 }; };
     await rewriteFileIds(db, p, ids => [...ids, "f1"], "no", { now: () => at(1) });
     expect(seen[0].sql).toContain("AND updated_at = ?");
-    expect(seen[0].params).toEqual(['["f1"]', at(1), "p1", at(0)]);
+    expect(seen[0].params).toEqual(['["f1"]', "{}", at(1), "p1", at(0)]);
     expect(JSON.parse(p.file_ids)).toEqual(["f1"]);
   });
 
@@ -904,16 +905,69 @@ describe("rewriteFileIds", () => {
     // as strings, "…09:00:00Z" looked NEWER than the clock and the guard stopped
     // advancing the stamp.
     const p = project({ updated_at: "2026-09-05T09:00:00Z" });
-    const db = async (_sql, params) => { p._wrote = params[1]; return { changed: 1 }; };
+    const db = async (_sql, params) => { p._wrote = params[2]; return { changed: 1 }; };
     await rewriteFileIds(db, p, ids => ids, "no", { now: () => at(0) });
     expect(Date.parse(p._wrote)).toBeGreaterThan(Date.parse("2026-09-05T09:00:00Z"));
   });
 
   it("never lets a same-millisecond stamp satisfy a racing caller's guard", async () => {
     const p = project();
-    const db = async (_sql, params) => { p._wrote = params[1]; return { changed: 1 }; };
+    const db = async (_sql, params) => { p._wrote = params[2]; return { changed: 1 }; };
     await rewriteFileIds(db, p, ids => ids, "no", { now: () => at(0) });
     expect(p._wrote).toBe(at(1));
+  });
+
+  it("writes the small copy of an added photo in the same UPDATE as the list", async () => {
+    const p = project({ file_ids: '["f0"]', photo_thumbs: '{"f0":"t0"}' });
+    const seen = [];
+    const db = async (sql, params) => { seen.push({ sql, params }); return { changed: 1 }; };
+    await rewriteFileIds(db, p, ids => [...ids, "f1"], "no", { now: () => at(1), thumbs: { f1: "t1" } });
+    expect(seen).toHaveLength(1);
+    expect(seen[0].sql).toContain("SET file_ids = ?, photo_thumbs = ?");
+    expect(JSON.parse(seen[0].params[1])).toEqual({ f0: "t0", f1: "t1" });
+    expect(JSON.parse(p.photo_thumbs)).toEqual({ f0: "t0", f1: "t1" });
+  });
+
+  it("drops a removed photo's small copy from the map it writes", async () => {
+    const p = project({ file_ids: '["f0","f1"]', photo_thumbs: '{"f0":"t0","f1":"t1"}' });
+    const seen = [];
+    const db = async (sql, params) => { seen.push({ sql, params }); return { changed: 1 }; };
+    await rewriteFileIds(db, p, ids => ids.filter(id => id !== "f0"), "no", { now: () => at(1) });
+    expect(seen[0].params[0]).toBe('["f1"]');
+    expect(JSON.parse(seen[0].params[1])).toEqual({ f1: "t1" });
+    expect(JSON.parse(p.photo_thumbs)).toEqual({ f1: "t1" });
+  });
+
+  it("adds to a row from before the column, whose map is {} or absent", async () => {
+    const p = project({ file_ids: '["old"]' });
+    const db = async () => ({ changed: 1 });
+    await rewriteFileIds(db, p, ids => [...ids, "f1"], "no", { now: () => at(1), thumbs: { f1: "t1" } });
+    expect(JSON.parse(p.photo_thumbs)).toEqual({ f1: "t1" });
+  });
+
+  it("keeps another member's small copy when it retries against their write", async () => {
+    const p = project();
+    let attempt = 0;
+    const db = async (sql) => {
+      if (sql.startsWith("SELECT")) {
+        expect(sql).toContain("photo_thumbs");
+        return { rows: [{ id: "p1", file_ids: '["theirs"]', photo_thumbs: '{"theirs":"t-theirs"}', updated_at: at(5) }] };
+      }
+      return { changed: ++attempt === 1 ? 0 : 1 };
+    };
+    await rewriteFileIds(db, p, ids => [...ids, "mine"], "no", { now: () => at(9), thumbs: { mine: "t-mine" } });
+    expect(JSON.parse(p.file_ids)).toEqual(["theirs", "mine"]);
+    expect(JSON.parse(p.photo_thumbs)).toEqual({ theirs: "t-theirs", mine: "t-mine" });
+  });
+
+  it("keeps the two columns in step in demo mode, without a statement", async () => {
+    const p = project({ file_ids: '["f0"]', photo_thumbs: '{"f0":"t0"}' });
+    let called = false;
+    const db = async () => { called = true; return { changed: 0 }; };
+    await rewriteFileIds(db, p, () => [], "no", { live: false });
+    expect(called).toBe(false);
+    expect(p.file_ids).toBe("[]");
+    expect(p.photo_thumbs).toBe("{}");
   });
 });
 
@@ -1010,6 +1064,80 @@ describe("parseFileIds", () => {
     expect(parseFileIds("not json")).toEqual([]);
     expect(parseFileIds(undefined)).toEqual([]);
     expect(parseFileIds('{"a":1}')).toEqual([]);
+  });
+});
+
+describe("parsePhotoThumbs", () => {
+  it("reads the stored JSON object, or one already parsed", () => {
+    expect(parsePhotoThumbs('{"p1":"t1","p2":"t2"}')).toEqual({ p1: "t1", p2: "t2" });
+    const stored = { p1: "t1" };
+    expect(parsePhotoThumbs(stored)).toEqual({ p1: "t1" });
+    expect(parsePhotoThumbs(stored)).not.toBe(stored);
+  });
+
+  it("gives an empty map for a row from before the column", () => {
+    expect(parsePhotoThumbs("{}")).toEqual({});
+    expect(parsePhotoThumbs(undefined)).toEqual({});
+    expect(parsePhotoThumbs(null)).toEqual({});
+    expect(parsePhotoThumbs("")).toEqual({});
+  });
+
+  it("never throws on junk, and gives an empty map", () => {
+    expect(parsePhotoThumbs("{not json")).toEqual({});
+    expect(parsePhotoThumbs('["t1"]')).toEqual({});
+    expect(parsePhotoThumbs('"t1"')).toEqual({});
+    expect(parsePhotoThumbs("null")).toEqual({});
+    expect(parsePhotoThumbs(7)).toEqual({});
+    expect(parsePhotoThumbs(["t1"])).toEqual({});
+  });
+
+  it("drops entries whose small copy is not a file id", () => {
+    expect(parsePhotoThumbs('{"p1":"t1","p2":null,"p3":5,"p4":{"id":"t4"},"p5":""}')).toEqual({ p1: "t1" });
+  });
+});
+
+describe("tilePhotoId", () => {
+  it("draws the small copy when the photo has one", () => {
+    expect(tilePhotoId("p1", '{"p1":"t1"}')).toBe("t1");
+    expect(tilePhotoId("p1", { p1: "t1" })).toBe("t1");
+  });
+
+  it("draws the photo itself when it has no small copy", () => {
+    expect(tilePhotoId("p2", '{"p1":"t1"}')).toBe("p2");
+  });
+
+  it("draws the photo itself for a row from before the column", () => {
+    expect(tilePhotoId("p1", "{}")).toBe("p1");
+    expect(tilePhotoId("p1", undefined)).toBe("p1");
+  });
+
+  it("draws the photo itself when the stored map cannot be read", () => {
+    expect(tilePhotoId("p1", "{not json")).toBe("p1");
+  });
+
+  it("does not mistake an inherited property for an entry", () => {
+    expect(tilePhotoId("constructor", "{}")).toBe("constructor");
+  });
+});
+
+describe("photoThumbsFor", () => {
+  it("keeps the small copies of the photos in the list", () => {
+    expect(photoThumbsFor(["p1", "p2"], '{"p1":"t1","p2":"t2"}')).toEqual({ p1: "t1", p2: "t2" });
+  });
+
+  it("drops the entry of a photo removed from the list", () => {
+    expect(photoThumbsFor(["p2"], '{"p1":"t1","p2":"t2"}')).toEqual({ p2: "t2" });
+    expect(photoThumbsFor([], '{"p1":"t1"}')).toEqual({});
+  });
+
+  it("leaves a photo with no small copy without an entry", () => {
+    expect(photoThumbsFor(["p1", "p2"], { p1: "t1" })).toEqual({ p1: "t1" });
+  });
+
+  it("gives an empty map for a row from before the column, or an unreadable one", () => {
+    expect(photoThumbsFor(["p1"], "{}")).toEqual({});
+    expect(photoThumbsFor(["p1"], undefined)).toEqual({});
+    expect(photoThumbsFor(["p1"], "{not json")).toEqual({});
   });
 });
 

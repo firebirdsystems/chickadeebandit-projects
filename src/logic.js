@@ -637,17 +637,28 @@ export async function writeOrThrow(db, { sql, params, refusal, live = true }) {
  * the first one's id — orphaning a file nothing will ever reclaim. The UPDATE is
  * guarded on the `updated_at` it read, and a zero-row answer means somebody else
  * wrote first (or the row is gone), so it re-reads and retries.
+ *
+ * `photo_thumbs` is written by the same statement and holds the small copies of
+ * the photos in the list being written, and no others. `thumbs` names the small
+ * copies of the photos this edit adds.
  */
 export async function rewriteFileIds(db, project, mutate, refusal, {
-  live = true, now = () => new Date().toISOString(), attempts = 4,
+  live = true, now = () => new Date().toISOString(), attempts = 4, thumbs = {},
 } = {}) {
+  const build = () => {
+    const ids = mutate(parseFileIds(project.file_ids));
+    const kept = photoThumbsFor(ids, { ...parsePhotoThumbs(project.photo_thumbs), ...thumbs });
+    return { next: JSON.stringify(ids), nextThumbs: JSON.stringify(kept) };
+  };
   if (!live) {
-    project.file_ids = JSON.stringify(mutate(parseFileIds(project.file_ids)));
+    const { next, nextThumbs } = build();
+    project.file_ids = next;
+    project.photo_thumbs = nextThumbs;
     return;
   }
   for (let attempt = 0; attempt < attempts; attempt++) {
     const stamp = project.updated_at;
-    const next = JSON.stringify(mutate(parseFileIds(project.file_ids)));
+    const { next, nextThumbs } = build();
     // Strictly advance the stamp: a write landing in the same millisecond would
     // otherwise leave the guard satisfiable by a racing caller still holding the
     // old value. Compared as INSTANTS, not strings — the same moment has more
@@ -658,18 +669,20 @@ export async function rewriteFileIds(db, project, mutate, refusal, {
       ? candidate
       : new Date(Date.parse(stamp) + 1).toISOString();
     const res = await db(
-      "UPDATE app_projects__projects SET file_ids = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
-      [next, at, project.id, stamp],
+      "UPDATE app_projects__projects SET file_ids = ?, photo_thumbs = ?, updated_at = ? WHERE id = ? AND updated_at = ?",
+      [next, nextThumbs, at, project.id, stamp],
     );
     if (Number(res?.changed ?? 0) > 0) {
       project.file_ids = next;
+      project.photo_thumbs = nextThumbs;
       project.updated_at = at;
       return;
     }
     const { rows } = await db(
-      "SELECT id, file_ids, updated_at FROM app_projects__projects WHERE id = ?", [project.id]);
+      "SELECT id, file_ids, photo_thumbs, updated_at FROM app_projects__projects WHERE id = ?", [project.id]);
     if (!rows?.length) throw new Error(refusal);
     project.file_ids = rows[0].file_ids;
+    project.photo_thumbs = rows[0].photo_thumbs;
     project.updated_at = rows[0].updated_at;
   }
   throw new Error(refusal);
@@ -681,6 +694,49 @@ export function parseFileIds(value) {
     const parsed = JSON.parse(value ?? "[]");
     return Array.isArray(parsed) ? parsed.filter(id => typeof id === "string") : [];
   } catch { return []; }
+}
+
+/**
+ * A project's `photo_thumbs` column as a plain object: photo file id → the file
+ * id of that photo's small copy. A row from before the column holds `{}`, and a
+ * value that cannot be read is treated the same way — every photo is then drawn
+ * from its own file.
+ */
+export function parsePhotoThumbs(value) {
+  let map = value;
+  if (typeof value === "string") {
+    try { map = JSON.parse(value); } catch { return {}; }
+  }
+  if (!map || typeof map !== "object" || Array.isArray(map)) return {};
+  const out = {};
+  for (const [photoId, thumbId] of Object.entries(map)) {
+    if (typeof thumbId === "string" && thumbId) out[photoId] = thumbId;
+  }
+  return out;
+}
+
+/**
+ * The file to draw for a photo in the grid: its small copy when one was kept,
+ * otherwise the photo itself. An upload keeps no small copy when the photo is
+ * already small or the browser cannot draw its format.
+ */
+export function tilePhotoId(photoId, thumbs) {
+  const known = parsePhotoThumbs(thumbs);
+  return Object.hasOwn(known, photoId) ? known[photoId] : photoId;
+}
+
+/**
+ * The `photo_thumbs` value to store beside a photo list: the known small
+ * copies, cut down to the photos still in the list. Removing a photo therefore
+ * drops its entry in the same write.
+ */
+export function photoThumbsFor(fileIds, thumbs) {
+  const known = parsePhotoThumbs(thumbs);
+  const out = {};
+  for (const photoId of fileIds) {
+    if (Object.hasOwn(known, photoId)) out[photoId] = known[photoId];
+  }
+  return out;
 }
 
 /**

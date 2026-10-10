@@ -145,7 +145,9 @@
     .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
     .photo { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
     .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .photo button { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.6); color: #fff; border: 0; border-radius: 6px; padding: 2px 7px; font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; }
+    .photo .photo-open { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+    .photo .photo-remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.6); color: #fff; border: 0; border-radius: 6px; padding: 2px 7px; font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; }
+    .photo-full { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto; object-fit: contain; border-radius: 8px; }
 
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,.45);
@@ -179,7 +181,7 @@ import {
   sortChecklist, isOverdue,
   completionIndex, completionOf,
   mayPublish, assignableMembers,
-  writeOrThrow, rewriteFileIds, parseFileIds, publishBestEffort,
+  writeOrThrow, rewriteFileIds, parseFileIds, tilePhotoId, publishBestEffort,
   toggleDecision, announcedMilestoneIds,
   chunk, D1_MAX_BINDS, CHILD_ORDERS, cursorFrom, keysetClause,
   mergeById, mergeSorted, compareBudgetRows, compareNoteRows, compareProjectRows,
@@ -526,7 +528,7 @@ function demoData() {
     id: "demo-p1", name: "Bathroom renovation",
     description: "Replacing the tile, vanity and extractor fan.",
     status: "active", visibility: "adults", target_date: today,
-    budget_cap_cents: 1200000, file_ids: "[]",
+    budget_cap_cents: 1200000, file_ids: "[]", photo_thumbs: "{}",
     created_by: "demo-1", created_at: nowIso(), updated_at: nowIso(), completed_at: null,
   }];
   budget = [
@@ -1171,8 +1173,10 @@ function renderPhotosTab(project) {
   const canEdit = canEditProject(project, ME);
   const grid = ids.map(id => `
     <div class="photo" data-testid="photo" data-file-id="${esc(id)}">
-      <img src="${esc(files.url(id))}" alt="Project photo" loading="lazy" />
-      ${canEdit ? `<button type="button" onclick="removePhoto(${jsArg(id)})">Remove</button>` : ""}
+      <button type="button" class="photo-open" aria-label="Open photo" onclick="viewPhoto(${jsArg(id)})">
+        <img src="${esc(files.url(tilePhotoId(id, project.photo_thumbs)))}" alt="Project photo" loading="lazy" />
+      </button>
+      ${canEdit ? `<button type="button" class="photo-remove" onclick="removePhoto(${jsArg(id)})">Remove</button>` : ""}
     </div>
   `).join("");
 
@@ -1320,17 +1324,17 @@ async function saveProject(isEdit) {
       }
     } else {
       const project = {
-        id: uuid(), ...fields, file_ids: "[]",
+        id: uuid(), ...fields, file_ids: "[]", photo_thumbs: "{}",
         created_by: ME?.id ?? "unknown", created_at: now, updated_at: now,
         completed_at: fields.status === "done" ? now : null, source_event_id: null,
       };
       await db(
         `INSERT INTO app_projects__projects
            (id, name, description, status, visibility, target_date, budget_cap_cents, file_ids,
-            created_by, created_at, updated_at, completed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            photo_thumbs, created_by, created_at, updated_at, completed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [project.id, project.name, project.description, project.status, project.visibility,
-         project.target_date, project.budget_cap_cents, project.file_ids,
+         project.target_date, project.budget_cap_cents, project.file_ids, project.photo_thumbs,
          project.created_by, project.created_at, project.updated_at, project.completed_at]
       );
       projects = mergeSorted(projects, [project], compareProjectRows);
@@ -1822,9 +1826,12 @@ async function deleteNote(noteId) {
  * `file_ids` is encrypted (it matches no plaintext suffix), and AES-GCM's
  * random IV means a `WHERE file_ids = ?` guard could never match. A row someone
  * else has touched since our read fails the guard, and we retry against theirs.
+ *
+ * The same UPDATE writes `photo_thumbs`, the small copies the grid draws.
+ * `thumbs` names the small copies of the photos being added.
  */
-const rewritePhotoIds = (project, mutate, refusal) =>
-  rewriteFileIds(db, project, mutate, refusal, { live: !!DB, now: nowIso });
+const rewritePhotoIds = (project, mutate, refusal, thumbs = {}) =>
+  rewriteFileIds(db, project, mutate, refusal, { live: !!DB, now: nowIso, thumbs });
 
 async function addPhoto(input) {
   const project = currentProject();
@@ -1835,9 +1842,12 @@ async function addPhoto(input) {
   try {
     // The DB row is only written once the upload has really resolved — a failed
     // upload must not leave an id in file_ids pointing at nothing.
-    const { id: fileId } = await files.upload(file);
+    // The small copy is what the grid draws. The reply has no `thumbnailId`
+    // when none was kept, and the grid then draws the photo itself.
+    const { id: fileId, thumbnailId } = await files.upload(file, { thumbnail: true });
     uploaded = fileId;
-    await rewritePhotoIds(project, ids => [...ids, fileId], "This photo could not be attached.");
+    await rewritePhotoIds(project, ids => [...ids, fileId], "This photo could not be attached.",
+      thumbnailId ? { [fileId]: thumbnailId } : {});
     uploaded = null;
     render();
   } catch (e) {
@@ -1864,6 +1874,20 @@ async function deletePhoto(fileId) {
   } catch (e) {
     hubAlert("Could not remove this photo.", { description: e.message });
   }
+}
+
+/**
+ * Open a photo at full size. The grid draws each photo's small copy, so this
+ * is the one place the photo itself is shown.
+ */
+function viewPhoto(fileId) {
+  const project = currentProject();
+  if (!project || !parseFileIds(project.file_ids).includes(fileId)) return;
+  openModal(`
+    <img class="photo-full" src="${esc(files.url(fileId))}" alt="Project photo" />
+    <div class="modal-actions">
+      <button type="button" class="btn" onclick="closeModal()">Close</button>
+    </div>`, "photo-view-modal");
 }
 
 // ── Window bridge ────────────────────────────────────────────────────────────
@@ -1923,6 +1947,7 @@ window.removeNote = function(id) { deleteNote(id); };
 
 window.uploadPhoto = function(input) { addPhoto(input); };
 window.removePhoto = function(id) { deletePhoto(id); };
+window.viewPhoto = function(id) { viewPhoto(id); };
 
 // ── Events ───────────────────────────────────────────────────────────────────
 // Re-render only the list on each keystroke so the search box keeps focus.

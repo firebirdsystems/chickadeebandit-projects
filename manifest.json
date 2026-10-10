@@ -195,6 +195,7 @@
             "status": "planning",
             "visibility": "adults",
             "file_ids": "[]",
+            "photo_thumbs": "{}",
             "created_by": "automation",
             "created_at": "$now",
             "updated_at": "$now",

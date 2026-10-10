@@ -12,7 +12,7 @@ Five tables, all `app_projects__`-prefixed.
 
 | Table | Holds | Row policy |
 |---|---|---|
-| `projects` | name, description, status, visibility, target date, budget cap, `file_ids` | `owner_or_visibility` |
+| `projects` | name, description, status, visibility, target date, budget cap, `file_ids`, `photo_thumbs` | `owner_or_visibility` |
 | `budget_items` | label, vendor, `estimated_cents`, nullable `actual_cents`, purchased flag | `inherit_visibility` |
 | `checklist_items` | title, due date, assignee, `is_milestone` flag | `inherit_visibility` |
 | `checklist_completions` | who closed an item, and when | `inherit_visibility` |
