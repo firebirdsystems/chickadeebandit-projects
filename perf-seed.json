@@ -1,0 +1,2091 @@
+{
+ "seed": [
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, target_date, budget_cap_cents, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 days','+0 minutes'))",
+   "params": [
+    "perf-proj-deck",
+    "Deck rebuild",
+    "Replace the rotten boards and add a step down to the lawn",
+    "active",
+    "everyone",
+    "{{date:21}}",
+    350000,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-50 days','+60 minutes'))",
+   "params": [
+    "perf-proj-deck-b1",
+    "perf-proj-deck",
+    "Pressure-treated decking boards",
+    "Harlow Timber",
+    142000,
+    151300,
+    1,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-49 days','+60 minutes'))",
+   "params": [
+    "perf-proj-deck-b2",
+    "perf-proj-deck",
+    "Joist hangers and screws",
+    "Harlow Timber",
+    18500,
+    17240,
+    1,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-48 days','+60 minutes'))",
+   "params": [
+    "perf-proj-deck-b3",
+    "perf-proj-deck",
+    "Deck stain, 10 litres",
+    9800,
+    0,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+105 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-47 days','+60 minutes'))",
+   "params": [
+    "perf-proj-deck-b4",
+    "perf-proj-deck",
+    "Skip hire",
+    "Greenway Skips",
+    26000,
+    26000,
+    1,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-46 days','+60 minutes'))",
+   "params": [
+    "perf-proj-deck-b5",
+    "perf-proj-deck",
+    "Handrail kit",
+    31000,
+    0,
+    4,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+120 minutes'))",
+   "params": [
+    "perf-proj-deck-c1",
+    "perf-proj-deck",
+    "Measure up and draw the plan",
+    "{{date:-50}}",
+    "{{me}}",
+    0,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-49.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-deck-c1-x",
+    "perf-proj-deck",
+    "perf-proj-deck-c1",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+130 minutes'))",
+   "params": [
+    "perf-proj-deck-c2",
+    "perf-proj-deck",
+    "Order timber",
+    "{{date:-40}}",
+    "{{me}}",
+    0,
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-39.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-deck-c2-x",
+    "perf-proj-deck",
+    "perf-proj-deck-c2",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+140 minutes'))",
+   "params": [
+    "perf-proj-deck-c3",
+    "perf-proj-deck",
+    "Rip out the old boards",
+    "{{date:-20}}",
+    "{{partner}}",
+    1,
+    2,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-19.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-deck-c3-x",
+    "perf-proj-deck",
+    "perf-proj-deck-c3",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+150 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+150 minutes'))",
+   "params": [
+    "perf-proj-deck-c4",
+    "perf-proj-deck",
+    "Check and replace joists",
+    "{{date:-6}}",
+    "{{me}}",
+    0,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-5.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-deck-c4-x",
+    "perf-proj-deck",
+    "perf-proj-deck-c4",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+160 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+160 minutes'))",
+   "params": [
+    "perf-proj-deck-c5",
+    "perf-proj-deck",
+    "Lay the new boards",
+    "{{date:4}}",
+    "{{me}}",
+    1,
+    4,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+170 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+170 minutes'))",
+   "params": [
+    "perf-proj-deck-c6",
+    "perf-proj-deck",
+    "Fit the handrail",
+    "{{date:12}}",
+    "{{partner}}",
+    0,
+    5,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+180 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+180 minutes'))",
+   "params": [
+    "perf-proj-deck-c7",
+    "perf-proj-deck",
+    "Stain, two coats",
+    "{{date:19}}",
+    "{{child}}",
+    0,
+    6,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-42.85714285714286 days','+0 minutes'))",
+   "params": [
+    "perf-proj-deck-n1",
+    "perf-proj-deck",
+    "Timber yard delivers Tuesdays and Fridays only",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25.714285714285715 days','+0 minutes'))",
+   "params": [
+    "perf-proj-deck-n2",
+    "perf-proj-deck",
+    "Two joists by the back door were soft, replaced both",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-8.571428571428575 days','+0 minutes'))",
+   "params": [
+    "perf-proj-deck-n3",
+    "perf-proj-deck",
+    "Borrow the mitre saw from next door for the weekend",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, target_date, budget_cap_cents, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+0 minutes'))",
+   "params": [
+    "perf-proj-kitchen",
+    "Kitchen island",
+    "A freestanding island with a butcher block top",
+    "planning",
+    "everyone",
+    "{{date:75}}",
+    180000,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-20 days','+60 minutes'))",
+   "params": [
+    "perf-proj-kitchen-b1",
+    "perf-proj-kitchen",
+    "Base cabinets",
+    "Northside Kitchens",
+    64000,
+    0,
+    0,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-19 days','+60 minutes'))",
+   "params": [
+    "perf-proj-kitchen-b2",
+    "perf-proj-kitchen",
+    "Butcher block worktop",
+    "Northside Kitchens",
+    42000,
+    0,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-18 days','+60 minutes'))",
+   "params": [
+    "perf-proj-kitchen-b3",
+    "perf-proj-kitchen",
+    "Two bar stools",
+    16000,
+    0,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+105 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-17 days','+60 minutes'))",
+   "params": [
+    "perf-proj-kitchen-b4",
+    "perf-proj-kitchen",
+    "Pendant light",
+    "Lumen & Co",
+    12500,
+    11900,
+    1,
+    3,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-16 days','+60 minutes'))",
+   "params": [
+    "perf-proj-kitchen-b5",
+    "perf-proj-kitchen",
+    "Electrician, half a day",
+    "Brightwire Electrical",
+    22000,
+    0,
+    4,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+120 minutes'))",
+   "params": [
+    "perf-proj-kitchen-c1",
+    "perf-proj-kitchen",
+    "Agree the size with masking tape on the floor",
+    "{{date:-20}}",
+    "{{partner}}",
+    0,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-19.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-kitchen-c1-x",
+    "perf-proj-kitchen",
+    "perf-proj-kitchen-c1",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+130 minutes'))",
+   "params": [
+    "perf-proj-kitchen-c2",
+    "perf-proj-kitchen",
+    "Get three quotes for cabinets",
+    "{{date:-5}}",
+    "{{partner}}",
+    0,
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-4.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-kitchen-c2-x",
+    "perf-proj-kitchen",
+    "perf-proj-kitchen-c2",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+140 minutes'))",
+   "params": [
+    "perf-proj-kitchen-c3",
+    "perf-proj-kitchen",
+    "Choose the worktop",
+    "{{date:6}}",
+    "{{me}}",
+    1,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+150 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+150 minutes'))",
+   "params": [
+    "perf-proj-kitchen-c4",
+    "perf-proj-kitchen",
+    "Book the electrician",
+    "{{date:14}}",
+    "{{partner}}",
+    0,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+160 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+160 minutes'))",
+   "params": [
+    "perf-proj-kitchen-c5",
+    "perf-proj-kitchen",
+    "Order the stools",
+    "{{date:30}}",
+    0,
+    4,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+170 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+170 minutes'))",
+   "params": [
+    "perf-proj-kitchen-c6",
+    "perf-proj-kitchen",
+    "Install day",
+    "{{date:70}}",
+    1,
+    5,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+180 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','+180 minutes'))",
+   "params": [
+    "perf-proj-kitchen-c7",
+    "perf-proj-kitchen",
+    "Oil the worktop",
+    "{{date:73}}",
+    "{{child2}}",
+    0,
+    6,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-21.42857142857143 days','+0 minutes'))",
+   "params": [
+    "perf-proj-kitchen-n1",
+    "perf-proj-kitchen",
+    "Leave at least 100 cm between island and oven",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12.857142857142858 days','+0 minutes'))",
+   "params": [
+    "perf-proj-kitchen-n2",
+    "perf-proj-kitchen",
+    "Quote two came in under budget",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-4.285714285714287 days','+0 minutes'))",
+   "params": [
+    "perf-proj-kitchen-n3",
+    "perf-proj-kitchen",
+    "Pendant arrived, it is in the hall cupboard",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, target_date, budget_cap_cents, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-3 days','+0 minutes'))",
+   "params": [
+    "perf-proj-treehouse",
+    "Treehouse build",
+    "A platform in the old oak with a rope ladder",
+    "active",
+    "everyone",
+    "{{date:10}}",
+    60000,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-35 days','+60 minutes'))",
+   "params": [
+    "perf-proj-treehouse-b1",
+    "perf-proj-treehouse",
+    "Posts and beams",
+    "Harlow Timber",
+    21000,
+    22450,
+    1,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-34 days','+60 minutes'))",
+   "params": [
+    "perf-proj-treehouse-b2",
+    "perf-proj-treehouse",
+    "Rope ladder",
+    3000,
+    3499,
+    1,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-33 days','+60 minutes'))",
+   "params": [
+    "perf-proj-treehouse-b3",
+    "perf-proj-treehouse",
+    "Coach bolts",
+    2800,
+    2650,
+    1,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+105 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-32 days','+60 minutes'))",
+   "params": [
+    "perf-proj-treehouse-b4",
+    "perf-proj-treehouse",
+    "Roof felt",
+    4500,
+    0,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-31 days','+60 minutes'))",
+   "params": [
+    "perf-proj-treehouse-b5",
+    "perf-proj-treehouse",
+    "Paint, kid's choice",
+    2500,
+    0,
+    4,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+120 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c1",
+    "perf-proj-treehouse",
+    "Pick the tree",
+    "{{date:-42}}",
+    "{{child}}",
+    0,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-41.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c1-x",
+    "perf-proj-treehouse",
+    "perf-proj-treehouse-c1",
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+130 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c2",
+    "perf-proj-treehouse",
+    "Draw the design",
+    "{{date:-38}}",
+    "{{child2}}",
+    0,
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-37.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c2-x",
+    "perf-proj-treehouse",
+    "perf-proj-treehouse-c2",
+    "{{child2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+140 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c3",
+    "perf-proj-treehouse",
+    "Build the platform",
+    "{{date:-14}}",
+    "{{me}}",
+    1,
+    2,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-13.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c3-x",
+    "perf-proj-treehouse",
+    "perf-proj-treehouse-c3",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+150 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+150 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c4",
+    "perf-proj-treehouse",
+    "Fit the railings",
+    "{{date:-2}}",
+    "{{me}}",
+    0,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+160 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+160 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c5",
+    "perf-proj-treehouse",
+    "Hang the rope ladder",
+    "{{date:3}}",
+    "{{child}}",
+    0,
+    4,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+170 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+170 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c6",
+    "perf-proj-treehouse",
+    "Roof on",
+    "{{date:8}}",
+    "{{adult2}}",
+    1,
+    5,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+180 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+180 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c7",
+    "perf-proj-treehouse",
+    "Paint it",
+    "{{date:10}}",
+    "{{child2}}",
+    0,
+    6,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+190 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-45 days','+190 minutes'))",
+   "params": [
+    "perf-proj-treehouse-c8",
+    "perf-proj-treehouse",
+    "Grand opening party",
+    "{{date:14}}",
+    0,
+    7,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-35 days','+0 minutes'))",
+   "params": [
+    "perf-proj-treehouse-n1",
+    "perf-proj-treehouse",
+    "Platform is level, checked twice",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+0 minutes'))",
+   "params": [
+    "perf-proj-treehouse-n2",
+    "perf-proj-treehouse",
+    "Mia wants a pulley for snacks",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15.000000000000002 days','+0 minutes'))",
+   "params": [
+    "perf-proj-treehouse-n3",
+    "perf-proj-treehouse",
+    "Railings need to be 90 cm minimum",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-5.000000000000002 days','+0 minutes'))",
+   "params": [
+    "perf-proj-treehouse-n4",
+    "perf-proj-treehouse",
+    "Robin is bringing the ladder on Saturday",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, target_date, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days','+0 minutes'))",
+   "params": [
+    "perf-proj-remortgage",
+    "Remortgage",
+    "Fixed rate ends in the new year",
+    "active",
+    "adults",
+    "{{date:45}}",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+60 minutes'))",
+   "params": [
+    "perf-proj-remortgage-b1",
+    "perf-proj-remortgage",
+    "Broker fee",
+    "Calder Mortgages",
+    50000,
+    0,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-14 days','+60 minutes'))",
+   "params": [
+    "perf-proj-remortgage-b2",
+    "perf-proj-remortgage",
+    "Valuation",
+    35000,
+    35000,
+    1,
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-13 days','+60 minutes'))",
+   "params": [
+    "perf-proj-remortgage-b3",
+    "perf-proj-remortgage",
+    "Solicitor",
+    "Finch & Lowe",
+    80000,
+    0,
+    2,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+105 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+60 minutes'))",
+   "params": [
+    "perf-proj-remortgage-b4",
+    "perf-proj-remortgage",
+    "Lender arrangement fee",
+    99900,
+    0,
+    3,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+120 minutes'))",
+   "params": [
+    "perf-proj-remortgage-c1",
+    "perf-proj-remortgage",
+    "Gather three months of payslips",
+    "{{date:-18}}",
+    "{{me}}",
+    0,
+    0,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-17.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-remortgage-c1-x",
+    "perf-proj-remortgage",
+    "perf-proj-remortgage-c1",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+130 minutes'))",
+   "params": [
+    "perf-proj-remortgage-c2",
+    "perf-proj-remortgage",
+    "Book the valuation",
+    "{{date:-10}}",
+    "{{partner}}",
+    0,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-9.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-remortgage-c2-x",
+    "perf-proj-remortgage",
+    "perf-proj-remortgage-c2",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+140 minutes'))",
+   "params": [
+    "perf-proj-remortgage-c3",
+    "perf-proj-remortgage",
+    "Compare five-year and two-year rates",
+    "{{date:-3}}",
+    "{{me}}",
+    0,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+150 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+150 minutes'))",
+   "params": [
+    "perf-proj-remortgage-c4",
+    "perf-proj-remortgage",
+    "Sign the offer",
+    "{{date:20}}",
+    "{{me}}",
+    1,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+160 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+160 minutes'))",
+   "params": [
+    "perf-proj-remortgage-c5",
+    "perf-proj-remortgage",
+    "Instruct the solicitor",
+    "{{date:25}}",
+    "{{partner}}",
+    0,
+    4,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+170 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','+170 minutes'))",
+   "params": [
+    "perf-proj-remortgage-c6",
+    "perf-proj-remortgage",
+    "Completion",
+    "{{date:45}}",
+    1,
+    5,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-17.857142857142858 days','+0 minutes'))",
+   "params": [
+    "perf-proj-remortgage-n1",
+    "perf-proj-remortgage",
+    "Fixed for five years looks best",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-10.714285714285715 days','+0 minutes'))",
+   "params": [
+    "perf-proj-remortgage-n2",
+    "perf-proj-remortgage",
+    "Valuation came back at the asking figure",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-3.5714285714285725 days','+0 minutes'))",
+   "params": [
+    "perf-proj-remortgage-n3",
+    "perf-proj-remortgage",
+    "Broker needs the ID documents again",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, target_date, budget_cap_cents, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-surprise",
+    "Surprise for Jordan's birthday",
+    "Keep this one quiet",
+    "planning",
+    "private",
+    "{{date:33}}",
+    40000,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+60 minutes'))",
+   "params": [
+    "perf-proj-surprise-b1",
+    "perf-proj-surprise",
+    "Restaurant deposit",
+    "The Old Mill",
+    10000,
+    10000,
+    1,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 days','+60 minutes'))",
+   "params": [
+    "perf-proj-surprise-b2",
+    "perf-proj-surprise",
+    "Cake",
+    "Flour & Fold Bakery",
+    6500,
+    0,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','0 days','+60 minutes'))",
+   "params": [
+    "perf-proj-surprise-b3",
+    "perf-proj-surprise",
+    "Balloons and banner",
+    3000,
+    0,
+    2,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+105 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','0 days','+60 minutes'))",
+   "params": [
+    "perf-proj-surprise-b4",
+    "perf-proj-surprise",
+    "Present",
+    18000,
+    0,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+120 minutes'))",
+   "params": [
+    "perf-proj-surprise-c1",
+    "perf-proj-surprise",
+    "Book the table for twelve",
+    "{{date:-8}}",
+    "{{me}}",
+    0,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-7.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-surprise-c1-x",
+    "perf-proj-surprise",
+    "perf-proj-surprise-c1",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+130 minutes'))",
+   "params": [
+    "perf-proj-surprise-c2",
+    "perf-proj-surprise",
+    "Send secret invites",
+    "{{date:-4}}",
+    "{{me}}",
+    0,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-3.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-surprise-c2-x",
+    "perf-proj-surprise",
+    "perf-proj-surprise-c2",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+140 minutes'))",
+   "params": [
+    "perf-proj-surprise-c3",
+    "perf-proj-surprise",
+    "Order the cake",
+    "{{date:10}}",
+    "{{me}}",
+    0,
+    2,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+150 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+150 minutes'))",
+   "params": [
+    "perf-proj-surprise-c4",
+    "perf-proj-surprise",
+    "Collect the present",
+    "{{date:28}}",
+    "{{me}}",
+    0,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+160 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','+160 minutes'))",
+   "params": [
+    "perf-proj-surprise-c5",
+    "perf-proj-surprise",
+    "Decorate while they are out",
+    "{{date:33}}",
+    "{{me}}",
+    1,
+    4,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-7.199999999999999 days','+0 minutes'))",
+   "params": [
+    "perf-proj-surprise-n1",
+    "perf-proj-surprise",
+    "Table is booked under Sam",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-2.3999999999999995 days','+0 minutes'))",
+   "params": [
+    "perf-proj-surprise-n2",
+    "perf-proj-surprise",
+    "Robin will get them out of the house at 5",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, budget_cap_cents, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-6 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garden",
+    "Vegetable garden",
+    "Three raised beds along the south fence",
+    "active",
+    "everyone",
+    45000,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-80 days','+60 minutes'))",
+   "params": [
+    "perf-proj-garden-b1",
+    "perf-proj-garden",
+    "Sleepers for raised beds",
+    "Harlow Timber",
+    16000,
+    15800,
+    1,
+    0,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-79 days','+60 minutes'))",
+   "params": [
+    "perf-proj-garden-b2",
+    "perf-proj-garden",
+    "Topsoil, two bulk bags",
+    "Greenway Landscapes",
+    14000,
+    14000,
+    1,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-78 days','+60 minutes'))",
+   "params": [
+    "perf-proj-garden-b3",
+    "perf-proj-garden",
+    "Seeds and seedlings",
+    4500,
+    5230,
+    1,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+105 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-77 days','+60 minutes'))",
+   "params": [
+    "perf-proj-garden-b4",
+    "perf-proj-garden",
+    "Netting and canes",
+    3800,
+    0,
+    3,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-76 days','+60 minutes'))",
+   "params": [
+    "perf-proj-garden-b5",
+    "perf-proj-garden",
+    "Water butt",
+    6500,
+    0,
+    4,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+120 minutes'))",
+   "params": [
+    "perf-proj-garden-c1",
+    "perf-proj-garden",
+    "Mark out the beds",
+    "{{date:-85}}",
+    "{{partner}}",
+    0,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-84.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garden-c1-x",
+    "perf-proj-garden",
+    "perf-proj-garden-c1",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+130 minutes'))",
+   "params": [
+    "perf-proj-garden-c2",
+    "perf-proj-garden",
+    "Build the frames",
+    "{{date:-70}}",
+    "{{me}}",
+    1,
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-69.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garden-c2-x",
+    "perf-proj-garden",
+    "perf-proj-garden-c2",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+140 minutes'))",
+   "params": [
+    "perf-proj-garden-c3",
+    "perf-proj-garden",
+    "Fill with soil",
+    "{{date:-62}}",
+    "{{child}}",
+    0,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-61.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garden-c3-x",
+    "perf-proj-garden",
+    "perf-proj-garden-c3",
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+150 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+150 minutes'))",
+   "params": [
+    "perf-proj-garden-c4",
+    "perf-proj-garden",
+    "Sow the first seeds",
+    "{{date:-55}}",
+    "{{child2}}",
+    0,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-54.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garden-c4-x",
+    "perf-proj-garden",
+    "perf-proj-garden-c4",
+    "{{child2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+160 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+160 minutes'))",
+   "params": [
+    "perf-proj-garden-c5",
+    "perf-proj-garden",
+    "Put up the netting",
+    "{{date:-1}}",
+    "{{partner}}",
+    0,
+    4,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+170 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+170 minutes'))",
+   "params": [
+    "perf-proj-garden-c6",
+    "perf-proj-garden",
+    "Install the water butt",
+    "{{date:9}}",
+    "{{adult2}}",
+    0,
+    5,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+180 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','+180 minutes'))",
+   "params": [
+    "perf-proj-garden-c7",
+    "perf-proj-garden",
+    "Plan next year's rotation",
+    0,
+    6,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-64.28571428571429 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garden-n1",
+    "perf-proj-garden",
+    "Slugs got the first lettuces, try copper tape",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-38.57142857142858 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garden-n2",
+    "perf-proj-garden",
+    "Tomatoes doing best in the middle bed",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12.857142857142861 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garden-n3",
+    "perf-proj-garden",
+    "Leo is in charge of watering on weekdays",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-7 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garage",
+    "Garage clear-out",
+    "Make room for the bikes and a workbench",
+    "on_hold",
+    "everyone",
+    "{{adult2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','+60 minutes'))",
+   "params": [
+    "perf-proj-garage-b1",
+    "perf-proj-garage",
+    "Shelving units",
+    12000,
+    11500,
+    1,
+    0,
+    "{{adult2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-59 days','+60 minutes'))",
+   "params": [
+    "perf-proj-garage-b2",
+    "perf-proj-garage",
+    "Tip run, van hire",
+    6000,
+    0,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-58 days','+60 minutes'))",
+   "params": [
+    "perf-proj-garage-b3",
+    "perf-proj-garage",
+    "Workbench",
+    15000,
+    0,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+105 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-57 days','+60 minutes'))",
+   "params": [
+    "perf-proj-garage-b4",
+    "perf-proj-garage",
+    "Bike wall hooks",
+    3200,
+    3200,
+    1,
+    3,
+    "{{adult2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+120 minutes'))",
+   "params": [
+    "perf-proj-garage-c1",
+    "perf-proj-garage",
+    "Sort into keep, donate, tip",
+    "{{date:-60}}",
+    "{{adult2}}",
+    0,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-59.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garage-c1-x",
+    "perf-proj-garage",
+    "perf-proj-garage-c1",
+    "{{adult2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+130 minutes'))",
+   "params": [
+    "perf-proj-garage-c2",
+    "perf-proj-garage",
+    "Build the shelving",
+    "{{date:-45}}",
+    "{{adult2}}",
+    0,
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-44.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garage-c2-x",
+    "perf-proj-garage",
+    "perf-proj-garage-c2",
+    "{{adult2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+140 minutes'))",
+   "params": [
+    "perf-proj-garage-c3",
+    "perf-proj-garage",
+    "Tip run",
+    "{{me}}",
+    0,
+    2,
+    "{{adult2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+150 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+150 minutes'))",
+   "params": [
+    "perf-proj-garage-c4",
+    "perf-proj-garage",
+    "Charity shop drop-off",
+    "{{partner}}",
+    0,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+160 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+160 minutes'))",
+   "params": [
+    "perf-proj-garage-c5",
+    "perf-proj-garage",
+    "Hang the bikes",
+    "{{child}}",
+    0,
+    4,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+170 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','+170 minutes'))",
+   "params": [
+    "perf-proj-garage-c6",
+    "perf-proj-garage",
+    "Set up the workbench",
+    "{{adult2}}",
+    1,
+    5,
+    "{{adult2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-42 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garage-n1",
+    "perf-proj-garage",
+    "On hold until the van is free",
+    "{{adult2}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-13.999999999999996 days','+0 minutes'))",
+   "params": [
+    "perf-proj-garage-n2",
+    "perf-proj-garage",
+    "Found the camping stove, it still works",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, target_date, budget_cap_cents, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-8 days','+0 minutes'))",
+   "params": [
+    "perf-proj-sciencefair",
+    "Science fair volcano",
+    "Mia's project, due at school",
+    "active",
+    "everyone",
+    "{{date:6}}",
+    5000,
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-5 days','+60 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-b1",
+    "perf-proj-sciencefair",
+    "Poster board",
+    1200,
+    1150,
+    1,
+    0,
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days','+60 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-b2",
+    "perf-proj-sciencefair",
+    "Baking soda and vinegar",
+    600,
+    580,
+    1,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-3 days','+60 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-b3",
+    "perf-proj-sciencefair",
+    "Paint and brushes",
+    1500,
+    0,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+105 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-2 days','+60 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-b4",
+    "perf-proj-sciencefair",
+    "Printing photos",
+    800,
+    0,
+    3,
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+120 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-c1",
+    "perf-proj-sciencefair",
+    "Pick the experiment",
+    "{{date:-14}}",
+    "{{child}}",
+    0,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-13.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-c1-x",
+    "perf-proj-sciencefair",
+    "perf-proj-sciencefair-c1",
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+130 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-c2",
+    "perf-proj-sciencefair",
+    "Build the cone from papier mache",
+    "{{date:-7}}",
+    "{{child}}",
+    0,
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-6.5 days','+0 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-c2-x",
+    "perf-proj-sciencefair",
+    "perf-proj-sciencefair-c2",
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+140 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-c3",
+    "perf-proj-sciencefair",
+    "Paint the volcano",
+    "{{date:1}}",
+    "{{child}}",
+    0,
+    2,
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+150 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+150 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-c4",
+    "perf-proj-sciencefair",
+    "Print the photos",
+    "{{date:3}}",
+    "{{me}}",
+    0,
+    3,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+160 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+160 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-c5",
+    "perf-proj-sciencefair",
+    "Write up the method",
+    "{{date:4}}",
+    "{{child}}",
+    1,
+    4,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, due_date, assignee_id, is_milestone, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+170 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-15 days','+170 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-c6",
+    "perf-proj-sciencefair",
+    "Practice the presentation",
+    "{{date:5}}",
+    "{{child}}",
+    0,
+    5,
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-10.714285714285715 days','+0 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-n1",
+    "perf-proj-sciencefair",
+    "Use the tri-fold board",
+    "{{child}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-6.428571428571429 days','+0 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-n2",
+    "perf-proj-sciencefair",
+    "Red food colouring makes the lava look better",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-2.1428571428571437 days','+0 minutes'))",
+   "params": [
+    "perf-proj-sciencefair-n3",
+    "perf-proj-sciencefair",
+    "Test eruption worked on the second try",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, target_date, budget_cap_cents, created_by, created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-100 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-100 days','+0 minutes'))",
+   "params": [
+    "perf-proj-bathroom",
+    "Bathroom renovation",
+    "New floor, new shower",
+    "done",
+    "everyone",
+    "{{date:-97}}",
+    90000,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-105 days','+0 minutes'))",
+   "params": [
+    "perf-proj-bathroom-b1",
+    "perf-proj-bathroom",
+    "Matte floor tile",
+    "Tilehouse",
+    40000,
+    45000,
+    1,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-105 days','+0 minutes'))",
+   "params": [
+    "perf-proj-bathroom-b2",
+    "perf-proj-bathroom",
+    "Fitting the shower",
+    "Aqua Plumbing",
+    30000,
+    31000,
+    1,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-105 days','+0 minutes'))",
+   "params": [
+    "perf-proj-bathroom-b3",
+    "perf-proj-bathroom",
+    "Extractor fan",
+    8000,
+    7400,
+    1,
+    2,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+120 minutes'))",
+   "params": [
+    "perf-proj-bathroom-c1",
+    "perf-proj-bathroom",
+    "Strip out the old suite",
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-109 days','+0 minutes'))",
+   "params": [
+    "perf-proj-bathroom-c1-x",
+    "perf-proj-bathroom",
+    "perf-proj-bathroom-c1",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+130 minutes'))",
+   "params": [
+    "perf-proj-bathroom-c2",
+    "perf-proj-bathroom",
+    "Tile the floor",
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-106 days','+0 minutes'))",
+   "params": [
+    "perf-proj-bathroom-c2-x",
+    "perf-proj-bathroom",
+    "perf-proj-bathroom-c2",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','+140 minutes'))",
+   "params": [
+    "perf-proj-bathroom-c3",
+    "perf-proj-bathroom",
+    "Fit the shower",
+    2,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-103 days','+0 minutes'))",
+   "params": [
+    "perf-proj-bathroom-c3-x",
+    "perf-proj-bathroom",
+    "perf-proj-bathroom-c3",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-101 days','+0 minutes'))",
+   "params": [
+    "perf-proj-bathroom-n1",
+    "perf-proj-bathroom",
+    "Grout colour is Warm Grey 02, for touch-ups",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, status, visibility, target_date, budget_cap_cents, created_by, created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-170 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-150 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-150 days','+0 minutes'))",
+   "params": [
+    "perf-proj-fence",
+    "Back fence repair",
+    "done",
+    "everyone",
+    "{{date:-147}}",
+    30000,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-170 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-155 days','+0 minutes'))",
+   "params": [
+    "perf-proj-fence-b1",
+    "perf-proj-fence",
+    "Fence panels, four",
+    "Harlow Timber",
+    18000,
+    17600,
+    1,
+    0,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-170 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-155 days','+0 minutes'))",
+   "params": [
+    "perf-proj-fence-b2",
+    "perf-proj-fence",
+    "Concrete posts",
+    "Harlow Timber",
+    9000,
+    9900,
+    1,
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-170 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-170 days','+120 minutes'))",
+   "params": [
+    "perf-proj-fence-c1",
+    "perf-proj-fence",
+    "Agree the split with the neighbours",
+    0,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-159 days','+0 minutes'))",
+   "params": [
+    "perf-proj-fence-c1-x",
+    "perf-proj-fence",
+    "perf-proj-fence-c1",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-170 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-170 days','+130 minutes'))",
+   "params": [
+    "perf-proj-fence-c2",
+    "perf-proj-fence",
+    "Set the posts",
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-156 days','+0 minutes'))",
+   "params": [
+    "perf-proj-fence-c2-x",
+    "perf-proj-fence",
+    "perf-proj-fence-c2",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-170 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-170 days','+140 minutes'))",
+   "params": [
+    "perf-proj-fence-c3",
+    "perf-proj-fence",
+    "Slot in the panels",
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-153 days','+0 minutes'))",
+   "params": [
+    "perf-proj-fence-c3-x",
+    "perf-proj-fence",
+    "perf-proj-fence-c3",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-151 days','+0 minutes'))",
+   "params": [
+    "perf-proj-fence-n1",
+    "perf-proj-fence",
+    "Neighbours paid half, settled in cash",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, target_date, budget_cap_cents, created_by, created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-180 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-180 days','+0 minutes'))",
+   "params": [
+    "perf-proj-nursery",
+    "Leo's room refresh",
+    "Bunk bed out, single bed and desk in",
+    "done",
+    "everyone",
+    "{{date:-177}}",
+    55000,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-185 days','+0 minutes'))",
+   "params": [
+    "perf-proj-nursery-b1",
+    "perf-proj-nursery",
+    "Bed frame and mattress",
+    32000,
+    31500,
+    1,
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-185 days','+0 minutes'))",
+   "params": [
+    "perf-proj-nursery-b2",
+    "perf-proj-nursery",
+    "Desk and chair",
+    14000,
+    14900,
+    1,
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-185 days','+0 minutes'))",
+   "params": [
+    "perf-proj-nursery-b3",
+    "perf-proj-nursery",
+    "Paint",
+    4500,
+    4200,
+    1,
+    2,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+120 minutes'))",
+   "params": [
+    "perf-proj-nursery-c1",
+    "perf-proj-nursery",
+    "Sell the bunk bed",
+    0,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-189 days','+0 minutes'))",
+   "params": [
+    "perf-proj-nursery-c1-x",
+    "perf-proj-nursery",
+    "perf-proj-nursery-c1",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+130 minutes'))",
+   "params": [
+    "perf-proj-nursery-c2",
+    "perf-proj-nursery",
+    "Paint the walls",
+    1,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-186 days','+0 minutes'))",
+   "params": [
+    "perf-proj-nursery-c2-x",
+    "perf-proj-nursery",
+    "perf-proj-nursery-c2",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-210 days','+140 minutes'))",
+   "params": [
+    "perf-proj-nursery-c3",
+    "perf-proj-nursery",
+    "Assemble the desk",
+    2,
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-183 days','+0 minutes'))",
+   "params": [
+    "perf-proj-nursery-c3-x",
+    "perf-proj-nursery",
+    "perf-proj-nursery-c3",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-181 days','+0 minutes'))",
+   "params": [
+    "perf-proj-nursery-n1",
+    "perf-proj-nursery",
+    "Paint is Soft Teal, half a tin left in the garage",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__projects (id, name, description, status, visibility, target_date, budget_cap_cents, created_by, created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-110 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-110 days','+0 minutes'))",
+   "params": [
+    "perf-proj-holiday",
+    "Summer holiday planning",
+    "Two weeks at the lake",
+    "done",
+    "adults",
+    "{{date:-107}}",
+    250000,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+60 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-115 days','+0 minutes'))",
+   "params": [
+    "perf-proj-holiday-b1",
+    "perf-proj-holiday",
+    "Cabin rental",
+    "Lakeside Cabins",
+    160000,
+    160000,
+    1,
+    0,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+75 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-115 days','+0 minutes'))",
+   "params": [
+    "perf-proj-holiday-b2",
+    "perf-proj-holiday",
+    "Ferry tickets",
+    24000,
+    26500,
+    1,
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__budget_items (id, project_id, label, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+90 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-115 days','+0 minutes'))",
+   "params": [
+    "perf-proj-holiday-b3",
+    "perf-proj-holiday",
+    "Kayak hire",
+    12000,
+    12000,
+    1,
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+120 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+120 minutes'))",
+   "params": [
+    "perf-proj-holiday-c1",
+    "perf-proj-holiday",
+    "Book the cabin",
+    0,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-119 days','+0 minutes'))",
+   "params": [
+    "perf-proj-holiday-c1-x",
+    "perf-proj-holiday",
+    "perf-proj-holiday-c1",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+130 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+130 minutes'))",
+   "params": [
+    "perf-proj-holiday-c2",
+    "perf-proj-holiday",
+    "Renew the passports",
+    1,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-116 days','+0 minutes'))",
+   "params": [
+    "perf-proj-holiday-c2-x",
+    "perf-proj-holiday",
+    "perf-proj-holiday-c2",
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_items (id, project_id, title, sort_order, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+140 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-240 days','+140 minutes'))",
+   "params": [
+    "perf-proj-holiday-c3",
+    "perf-proj-holiday",
+    "Arrange the cat sitter",
+    2,
+    "{{partner}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__checklist_completions (id, project_id, item_id, done_by, done_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-113 days','+0 minutes'))",
+   "params": [
+    "perf-proj-holiday-c3-x",
+    "perf-proj-holiday",
+    "perf-proj-holiday-c3",
+    "{{me}}"
+   ]
+  },
+  {
+   "sql": "INSERT INTO app_projects__notes (id, project_id, body, created_by, created_at) VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-111 days','+0 minutes'))",
+   "params": [
+    "perf-proj-holiday-n1",
+    "perf-proj-holiday",
+    "Cabin 7 has the best view, ask for it again",
+    "{{partner}}"
+   ]
+  }
+ ]
+}
