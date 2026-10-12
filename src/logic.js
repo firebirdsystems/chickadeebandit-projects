@@ -625,7 +625,7 @@ export function assignableMembers(project, members) {
 export async function writeOrThrow(db, { sql, params, refusal, live = true }) {
   if (!live) return { rows: [], changed: 1 };
   const res = await db(sql, params);
-  if (Number(res?.changed ?? 0) === 0) throw new Error(refusal);
+  if (Number(res?.changed ?? 0) === 0) throw Object.assign(new Error(refusal), { forUser: true });
   return res;
 }
 
@@ -680,12 +680,12 @@ export async function rewriteFileIds(db, project, mutate, refusal, {
     }
     const { rows } = await db(
       "SELECT id, file_ids, photo_thumbs, updated_at FROM app_projects__projects WHERE id = ?", [project.id]);
-    if (!rows?.length) throw new Error(refusal);
+    if (!rows?.length) throw Object.assign(new Error(refusal), { forUser: true });
     project.file_ids = rows[0].file_ids;
     project.photo_thumbs = rows[0].photo_thumbs;
     project.updated_at = rows[0].updated_at;
   }
-  throw new Error(refusal);
+  throw Object.assign(new Error(refusal), { forUser: true });
 }
 
 /** JSON array of hub file ids, defensively. Shared by the app and the CAS above. */

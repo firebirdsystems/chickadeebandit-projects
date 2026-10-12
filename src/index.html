@@ -461,6 +461,18 @@ const events = createEventsHelper(EVENTS, APP_ID);
 const dbWrite = (sql, params, refusal) =>
   writeOrThrow(db, { sql, params, refusal, live: !!DB });
 
+/** A failed write, said in this app's words. Only wording written for the
+ *  reader is shown beside it: a refusal this app threw (`forUser`), or the
+ *  hub's answer to a photo upload it turned down (too large, wrong type, out
+ *  of space). Anything else goes to the console. */
+function writeFailed(what, e, { upload = false } = {}) {
+  console.error(`[projects] could not ${what}`, e);
+  const said = e?.forUser || (upload && (e?.status === 507 || (e?.status >= 400 && e?.status < 500)));
+  return said
+    ? hubAlert(`Couldn’t ${what}.`, { description: e.message })
+    : hubAlert(`Couldn’t ${what} — try again.`);
+}
+
 // ── Side effects (best-effort; the row is already written) ────────────────────
 /** The app's (type, subject, payload) order over the SDK's publish, which takes
  *  the payload second. The SDK reports a catalog/schema rejection to the console
@@ -781,7 +793,8 @@ async function loadMoreChildren(projectId, key) {
     }
     noteCursor(projectId, key, rows);
   } catch (e) {
-    hubAlert("Could not load more.", { description: e.message });
+    console.error("[projects] load more failed", e);
+    hubAlert("Couldn’t load more.");
   } finally {
     childLoading.delete(marker);
     render();
@@ -831,7 +844,7 @@ async function refresh() {
   summariesReady = loadSummaries().then(guardedRepaint).catch(() => {});
   loadRemainingProjects(guardedRepaint)
     .then(guardedRepaint)
-    .catch(e => { error = e.message; guardedRepaint(); });
+    .catch(e => { console.error("[projects] load failed", e); error = "Couldn’t load the rest of the projects."; guardedRepaint(); });
 }
 
 /**
@@ -884,7 +897,8 @@ async function openProject(id) {
     await Promise.all([ensureChildren(id), summariesReady]);
   } catch (e) {
     if (!nav.current(token)) return;
-    error = e.message;
+    console.error("[projects] open failed", e);
+    error = "Couldn’t load this project.";
   }
   if (!nav.current(token)) return;
   currentProjectId = id;
@@ -1370,7 +1384,7 @@ async function saveProject(isEdit) {
     }
   } catch (e) {
     unbusy(btn, isEdit ? "Save" : "Create project");
-    hubAlert(isEdit ? "Could not save this project." : "Could not create this project.", { description: e.message });
+    writeFailed(isEdit ? "save the project" : "create the project", e);
   }
 }
 
@@ -1410,7 +1424,7 @@ async function deleteProject() {
     closeModal();
     goBack();
   } catch (e) {
-    hubAlert("Could not delete this project.", { description: e.message });
+    writeFailed("delete the project", e);
   }
 }
 
@@ -1515,7 +1529,7 @@ async function saveBudgetItem(itemId) {
     }
   } catch (e) {
     unbusy(btn, itemId ? "Save" : "Add item");
-    hubAlert("Could not save this line item.", { description: e.message });
+    writeFailed("save the line item", e);
   }
 }
 
@@ -1534,7 +1548,7 @@ async function deleteBudgetItem(itemId) {
     updateSummary(project.id, { before: item });
     render();
   } catch (e) {
-    hubAlert("Could not remove this line item.", { description: e.message });
+    writeFailed("remove the line item", e);
   }
 }
 
@@ -1664,7 +1678,7 @@ async function saveChecklistItem(itemId) {
     }
   } catch (e) {
     unbusy(btn, itemId ? "Save" : "Add item");
-    hubAlert("Could not save this item.", { description: e.message });
+    writeFailed("save the item", e);
   }
 }
 
@@ -1715,7 +1729,7 @@ async function toggleChecklistWrite(project, item) {
       updateSummary(project.id, { done: -1 });
       render();
     } catch (e) {
-      hubAlert("Could not reopen this item.", { description: e.message });
+      writeFailed("reopen the item", e);
     }
     return;
   }
@@ -1748,7 +1762,7 @@ async function toggleChecklistWrite(project, item) {
       logProjectActivity(project, `Hit a milestone on "${project.name}": ${item.title}`);
     }
   } catch (e) {
-    hubAlert("Could not tick off this item.", { description: e.message });
+    writeFailed("tick off the item", e);
   }
 }
 
@@ -1770,7 +1784,7 @@ async function deleteChecklistItem(itemId) {
     updateSummary(item.project_id, { checklist: -1, done: wasDone ? -1 : 0 });
     render();
   } catch (e) {
-    hubAlert("Could not remove this item.", { description: e.message });
+    writeFailed("remove the item", e);
   }
 }
 
@@ -1806,7 +1820,7 @@ async function saveNote() {
     render();
   } catch (e) {
     unbusy(btn, "Log it");
-    hubAlert("Could not save this note.", { description: e.message });
+    writeFailed("save the note", e);
   }
 }
 
@@ -1821,7 +1835,7 @@ async function deleteNote(noteId) {
     if (note) updateSummary(note.project_id, { notes: -1 });
     render();
   } catch (e) {
-    hubAlert("Could not delete this note.", { description: e.message });
+    writeFailed("delete the note", e);
   }
 }
 
@@ -1871,7 +1885,7 @@ async function addPhoto(input) {
     // forever. Undo our own half.
     if (uploaded) await files.delete(uploaded).catch(() => {});
     input.disabled = false;
-    hubAlert("Could not add this photo.", { description: e.message });
+    writeFailed("add the photo", e, { upload: true });
   }
 }
 
@@ -1887,7 +1901,7 @@ async function deletePhoto(fileId) {
       "This photo could not be removed.");
     render();
   } catch (e) {
-    hubAlert("Could not remove this photo.", { description: e.message });
+    writeFailed("remove the photo", e);
   }
 }
 
