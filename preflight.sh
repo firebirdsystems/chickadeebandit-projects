@@ -134,5 +134,44 @@ else
   ( cd "$HUB" && CB_APPS_DIR="$APPS_DIR" CB_ONLY_APP="$APP" npx vitest run __tests__/app-exercise )
 fi
 
+# ── Browser scenarios ────────────────────────────────────────────────────────
+# ui-scenarios.json is driven by the hub's Playwright lane, which no release
+# workflow runs for a single app — so a scenario written beside a page change
+# can sit wrong for weeks and fail on someone else's run. When this app ships
+# one, run it here against the hub's local test stack (Playwright boots it and
+# stops it). Skip with PREFLIGHT_SKIP_UI=1.
+#
+# The lane selects by manifest id, which is not always the folder name.
+echo ""
+E2E_URL="${E2E_BASE_URL:-http://localhost:5173}"
+if [ ! -f "$ROOT/ui-scenarios.json" ]; then
+  echo "• Browser scenarios skipped — this app ships no ui-scenarios.json."
+elif [ -n "${PREFLIGHT_SKIP_UI:-}" ]; then
+  echo "• Browser scenarios skipped — PREFLIGHT_SKIP_UI is set."
+elif [ -z "$HUB" ] || [ ! -d "$HUB/node_modules" ]; then
+  echo "• Browser scenarios skipped — no installed hub checkout found."
+elif [ "$node_major" -lt "$HUB_NODE_MAJOR" ]; then
+  echo "• Browser scenarios skipped — they need Node ${HUB_NODE_MAJOR}+, found $(node -v)."
+elif ! ( cd "$HUB" && npx --no-install playwright --version >/dev/null 2>&1 ); then
+  echo "• Browser scenarios skipped — Playwright is not installed in the hub checkout."
+  echo "  Install it once with:  (cd $HUB && npx playwright install chromium)"
+elif [ "$(curl -s -o /dev/null -m 3 -w '%{http_code}' "$E2E_URL/login" 2>/dev/null)" = "200" ] \
+  && [ "$(curl -s -o /dev/null -m 3 -w '%{http_code}' "$E2E_URL/api/e2e/mail" 2>/dev/null)" = "404" ]; then
+  # Playwright reuses whatever answers on that port. A dev server there is not
+  # the test stack: its test-only routes answer 404 and every scenario would
+  # fail on setup, which reads as a broken app and is not one.
+  echo "• Browser scenarios skipped — $E2E_URL is a dev server, not the hub's test stack."
+  echo "  Stop it and push again, or set PREFLIGHT_SKIP_UI=1 to push without them."
+else
+  echo "▶ Browser scenarios…"
+  APP_ID="$(node -p 'require(process.argv[1]).id' "$ROOT/manifest.json")"
+  # sed, not grep -v: it keeps Playwright's exit status under pipefail and
+  # cannot fail on its own when every line is filtered out.
+  ( set -o pipefail
+    cd "$HUB" && CB_APPS_DIR="$APPS_DIR" CB_ONLY_APP="$APP_ID" \
+      npx playwright test -c e2e/playwright.config.ts --project=app-ui --reporter=line 2>&1 \
+      | sed '/^\[WebServer\]/d' )
+fi
+
 echo ""
 echo "✓ Preflight passed"

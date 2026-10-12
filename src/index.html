@@ -93,6 +93,8 @@
     .search-input:focus { outline: none; border-color: var(--accent); }
     .empty, .loading { color: var(--muted); text-align: center; padding: 28px 16px; }
     .empty-icon { margin-bottom: 8px; }
+    .load-error { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; background: var(--hub-tint-danger, #fee2e2); color: var(--hub-tint-danger-fg, #b91c1c); font-size: 0.9rem; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+    .load-error-retry { background: none; border: 1px solid currentColor; border-radius: 8px; padding: 5px 10px; font: inherit; font-weight: 600; color: inherit; cursor: pointer; flex-shrink: 0; }
     .error { background: var(--red-soft); color: var(--red); padding: 9px 12px; border-radius: 8px; margin-bottom: 10px; font-size: .86rem; }
 
     .badge { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: .72rem; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
@@ -798,12 +800,21 @@ function guardedRepaint() {
   render();
 }
 
+// The first load failed: the projects are unknown, not absent.
+let loadFailed = false;
+// The projects were read but the roster was not. The list stays (it names no
+// member) under the same banner, rather than appearing and then vanishing.
+let rosterFailed = false;
+
 async function refresh() {
   error = "";
   try {
     await loadProjects();
-  } catch (e) {
-    error = e.message;
+    loadFailed = false;
+  } catch {
+    loadFailed = true;
+    render();
+    return;
   }
   // First paint waits on the projects read alone, which the preload answers
   // from rows already embedded in the document — no round trip. The roster is
@@ -812,7 +823,9 @@ async function refresh() {
   // here bought nothing and cost every launch a full round trip before anything
   // appeared. Repaint when the names land, and again when the tail arrives.
   render();
-  loadMembers().then(guardedRepaint).catch(() => {});
+  // A roster that could not be read is a failed load: role gates and names
+  // drawn from an empty list would be stated as fact.
+  loadMembers().then(() => { rosterFailed = !membersLoaded; guardedRepaint(); }).catch(() => {});
   // Totals land after the first paint: the cards render without them rather
   // than the whole app waiting on a read that only fills in numbers.
   summariesReady = loadSummaries().then(guardedRepaint).catch(() => {});
@@ -945,6 +958,7 @@ function visibleProjects() {
 }
 
 function renderProjectList() {
+  if (loadFailed) return "";
   const list = visibleProjects();
   if (!list.length) {
     if (searchQ) return `<div class="card empty"><div class="empty-icon">${chickadee("searching")}</div><p>No projects match "${esc(searchQ)}".</p></div>`;
@@ -963,8 +977,9 @@ function renderList() {
         <h1>Projects</h1>
         <p class="muted tiny">Budgets, checklists and decisions for the big things.</p>
       </div>
-      <button class="btn btn-primary btn-sm" type="button" onclick="openNewProject()" data-testid="new-project">New project</button>
+      ${loadFailed || rosterFailed ? "" : `<button class="btn btn-primary btn-sm" type="button" onclick="openNewProject()" data-testid="new-project">New project</button>`}
     </div>
+    ${loadFailed || rosterFailed ? `<div class="load-error" data-testid="load-error" role="alert"><span>Couldn’t load your projects.</span> <button type="button" class="load-error-retry" data-testid="load-retry" onclick="retryLoad()">Try again</button></div>` : ""}
     ${error ? `<div class="error">${esc(error)}</div>` : ""}
     ${projects.length ? `
       <div class="search-row">
@@ -2000,10 +2015,12 @@ async function handleDeepLink() {
   }
 }
 
-(async () => {
+async function firstLoad() {
   await refresh();
-  await handleDeepLink();
-})();
+  if (!loadFailed) await handleDeepLink();
+}
+window.retryLoad = firstLoad;
+firstLoad();
 </script>
 </body>
 </html>
