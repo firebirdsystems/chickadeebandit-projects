@@ -811,7 +811,6 @@ The hub injects current limits into `window.__RESOURCE_LIMITS`:
 const LIMITS = window.__RESOURCE_LIMITS ?? {};
 // LIMITS.max_file_bytes      — max bytes per individual upload (default 10 MB)
 // LIMITS.max_files_bytes     — max total file storage for this app (default 500 MB)
-// LIMITS.max_db_bytes        — max DB storage for this app (default 200 MB)
 // LIMITS.max_store_bytes     — max KV storage for this app
 // LIMITS.max_store_reads_per_day
 // LIMITS.max_store_writes_per_day
@@ -1116,9 +1115,9 @@ same restrictions.
   setter, a valuation column visible only to adults.
 - `column_write_acls` is the write-side counterpart of `column_read_acls`:
   it restricts who may write individual columns on `INSERT`/`UPDATE`.
-- `retain_days` is a hub-managed **automatic expiry** modifier: the daily
-  maintenance runner deletes rows older than `default` days by `timestamp_column`.
-  App SQL never gets this power.
+- Expiry is not a policy modifier: declare it under the top-level `retention`
+  map (see "Hub-managed expiry"). The daily maintenance runner deletes rows
+  older than `default` days by `timestamp_column`; app SQL never gets this power.
 - `steward_writes_only` is a write-lock modifier available on any policy kind:
   `{ "kind": "adult_writable", "steward_writes_only": true }`. When the app is
   installed in a **`roster`** shared space (see “Shared spaces & the roster
@@ -1358,22 +1357,28 @@ Restricts who may write individual columns on `INSERT`/`UPDATE`:
 - A single `UPDATE` that writes two owner-columns bound to different owners is
   rejected — a member can only be one owner.
 
-#### `retain_days` — hub-managed automatic expiry (cross-kind modifier)
+#### Hub-managed automatic expiry — `retention.<table>` (top-level, any kind)
 
 Declares a retention window for one table; the hub's **daily maintenance runner**
 deletes rows whose `timestamp_column` is older than `default` days. App SQL is
 never granted this power — the bounded delete runs as trusted code, so a member
-cannot use it to purge rows early. Valid on any policy kind.
+cannot use it to purge rows early. It lives in the top-level `retention` map,
+keyed by unprefixed table, beside `row_policies` rather than inside a policy:
+whether a table is governed and whether it grows forever are independent
+questions. (Older bundles spelled this `row_policies.<t>.retain_days`; the hub
+lifts that into `retention` on read.)
 
 ```json
-"retain_days": {
-  "default": 90,
-  "timestamp_column": "created_at",
-  "id_column": "id",
-  "override_key": "messages",
-  "dependent_tables": [
-    { "table": "message_reactions", "foreign_key": "message_id" }
-  ]
+"retention": {
+  "messages": {
+    "default": 90,
+    "timestamp_column": "created_at",
+    "id_column": "id",
+    "override_key": "messages",
+    "dependent_tables": [
+      { "table": "message_reactions", "foreign_key": "message_id" }
+    ]
+  }
 }
 ```
 
@@ -1704,7 +1709,7 @@ rows and `sealed_until` for the final per-member responses.
 | Shared among an arbitrary set of named members (borrow request, expense split) | `party_scoped` |
 | Rows whose audience is a chat/forum channel's membership | `channel_scoped` |
 | Cap the total rows a table may hold (incl. external submissions) | any kind plus `max_rows` |
-| Auto-expire rows after N days (ephemeral logs, chat history, location pings) | any kind plus `retain_days` |
+| Auto-expire rows after N days (ephemeral logs, chat history, location pings) | any kind, plus a top-level `retention.<table>` entry |
 | Votes/comments/logs/check-offs whose visibility should match a parent record | `inherit_visibility` |
 | Turn-based child rows where only the current player may INSERT (moves, questions, guesses) | `inherit_visibility` with `insert_only_by_parent_column_member: "current_turn_member_id"` |
 | Attributed responses hidden from everyone except the owner until the parent closes | `sealed_until` with `visible_parent_status_values: ["closed"]`; usually add `max_per_member` and `frozen_when` |

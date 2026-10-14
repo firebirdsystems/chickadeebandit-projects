@@ -79,7 +79,7 @@ no edit path at all (a decision is retracted and re-logged; a tick is undone and
 re-made), so every one of their columns is immutable and UPDATE has no legitimate
 shape left.
 
-**No `retain_days`.** A finished renovation is a record a household keeps, not a
+**No `retention`.** A finished renovation is a record a household keeps, not a
 log that should expire. A deliberate departure from most apps here.
 
 **A private project never reaches the cross-app bus or the activity feed**

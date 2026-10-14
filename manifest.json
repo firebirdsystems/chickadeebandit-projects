@@ -136,8 +136,9 @@
       { "table": "notes", "foreign_key": "project_id" }
     ]
   },
-  "delete_file_list_columns": { "projects": ["file_ids"] },
-  "update_file_list_columns": { "projects": ["file_ids"] },
+  "file_columns": {
+    "projects": { "list_columns": ["file_ids"] }
+  },
   "agenda": {
     "kind": "task",
     "label": "Project",
@@ -224,7 +225,6 @@
     "db_exports": ["active_projects", "budget_summary"]
   },
   "resource_limits": {
-    "max_db_bytes": 52428800,
     "max_file_bytes": 20971520,
     "max_files_bytes": 1073741824
   }
