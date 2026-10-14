@@ -182,15 +182,15 @@ describe("member_references, cascades and file columns", () => {
   });
 
   it("declares the file-list column on both delete and update", () => {
-    // Declaring it on delete alone leaks the blob when a photo is swapped out.
-    expect(manifest.delete_file_list_columns.projects).toEqual(["file_ids"]);
-    expect(manifest.update_file_list_columns.projects).toEqual(["file_ids"]);
+    // Declaring it on delete alone leaks the blob when a photo is swapped out;
+    // one `file_columns` entry covers both the DELETE and the UPDATE lane.
+    expect(manifest.file_columns.projects).toEqual({ list_columns: ["file_ids"] });
     expect(has("projects", "file_ids")).toBe(true);
   });
 
   it("keeps the small copies in a column that is not a file column", () => {
     // A small copy is deleted with its photo, so `photo_thumbs` is named by no
-    // file key (the two lists above stay exactly ["file_ids"]).
+    // file key (the list above stays exactly ["file_ids"]).
     expect(has("projects", "photo_thumbs")).toBe(true);
     expect(manifest.member_references.projects.file_id_list_column).toBe("file_ids");
   });
