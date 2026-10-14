@@ -184,6 +184,7 @@ import {
   completionIndex, completionOf,
   mayPublish, assignableMembers,
   writeOrThrow, rewriteFileIds, parseFileIds, tilePhotoId, publishBestEffort,
+  outcomeUnknown, storedDiffers, SAVED_AS_FIRST, failureLine, uploadFailureLine,
   toggleDecision, announcedMilestoneIds,
   chunk, D1_MAX_BINDS, CHILD_ORDERS, cursorFrom, keysetClause,
   mergeById, mergeSorted, compareBudgetRows, compareNoteRows, compareProjectRows,
@@ -462,15 +463,16 @@ const dbWrite = (sql, params, refusal) =>
   writeOrThrow(db, { sql, params, refusal, live: !!DB });
 
 /** A failed write, said in this app's words. Only wording written for the
- *  reader is shown beside it: a refusal this app threw (`forUser`), or the
- *  hub's answer to a photo upload it turned down (too large, wrong type, out
- *  of space). Anything else goes to the console. */
+ *  reader is shown beside it: a refusal this app threw (`forUser`). A photo
+ *  upload the hub turned down gets the upload lines (too large, wrong kind),
+ *  everything else `failureLine`'s line from its status; the hub's text goes
+ *  to the console only. */
 function writeFailed(what, e, { upload = false } = {}) {
   console.error(`[projects] could not ${what}`, e);
-  const said = e?.forUser || (upload && (e?.status === 507 || (e?.status >= 400 && e?.status < 500)));
-  return said
-    ? hubAlert(`Couldn’t ${what}.`, { description: e.message })
-    : hubAlert(`Couldn’t ${what} — try again.`);
+  if (e?.forUser) return hubAlert(`Couldn’t ${what}.`, { description: e.message });
+  // "save the line item" → "line item": the thing the action names.
+  const words = { action: what, thing: what.replace(/^.*?\bthe /, "") };
+  return hubAlert(upload ? uploadFailureLine(e, words) : failureLine(e, words));
 }
 
 // ── Side effects (best-effort; the row is already written) ────────────────────
@@ -1483,14 +1485,17 @@ async function saveBudgetItem(itemId) {
   // past the 200-row page it compared two understated numbers: an overrun could
   // pass unannounced, and `committed_cents` went out on the event understated
   // to whatever automation was listening.
+  // The snapshot is taken before the write; the crossing is worked out only
+  // once the write is known to have landed, from what was stored.
   const beforeCents = summaryOf(project.id)?.committedCents ?? null;
-  const afterCents = beforeCents === null
-    ? null
-    : beforeCents - (existing ? committedOf(existing) : 0)
-      + committedOf({ estimated_cents: estimated, actual_cents: actual });
-  const crossed = crossedCap(project.budget_cap_cents, beforeCents, afterCents);
-
   const wasWorth = existing ? { estimated_cents: existing.estimated_cents, actual_cents: existing.actual_cents } : null;
+  let worth = { estimated_cents: estimated, actual_cents: actual };
+  let note = "";
+  // A new line item's id is minted once per open form and sent on every try:
+  // a try whose answer was lost may have stored it, and a second press must
+  // find it rather than add (and count against the budget) a second one.
+  const host = modalEl;
+  if (!existing && host && !host.dataset.rowId) host.dataset.rowId = uuid();
 
   try {
     if (existing) {
@@ -1504,23 +1509,53 @@ async function saveBudgetItem(itemId) {
       updateSummary(project.id, { before: wasWorth, after: { estimated_cents: estimated, actual_cents: actual } });
     } else {
       const sortOrder = budgetOf(project.id).length;
-      const item = {
-        id: uuid(), project_id: project.id, label, vendor_name: vendor,
+      let item = {
+        id: host?.dataset.rowId ?? uuid(), project_id: project.id, label, vendor_name: vendor,
         estimated_cents: estimated, actual_cents: actual, purchased, sort_order: sortOrder,
         created_by: ME?.id ?? "unknown", created_at: now, updated_at: now,
       };
-      await db(
-        `INSERT INTO app_projects__budget_items
-           (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [item.id, item.project_id, item.label, item.vendor_name, item.estimated_cents,
-         item.actual_cents, item.purchased, item.sort_order, item.created_by, item.created_at, item.updated_at]
-      );
+      try {
+        await db(
+          `INSERT INTO app_projects__budget_items
+             (id, project_id, label, vendor_name, estimated_cents, actual_cents, purchased, sort_order, created_by, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [item.id, item.project_id, item.label, item.vendor_name, item.estimated_cents,
+           item.actual_cents, item.purchased, item.sort_order, item.created_by, item.created_at, item.updated_at]
+        );
+      } catch (e) {
+        // Unknown outcome: read back by the pinned id. Found means an earlier
+        // try landed and its success path never ran, so it runs now, once, on
+        // the stored row. Not found, or the read failed: the usual failure
+        // line, the id still pinned.
+        if (!outcomeUnknown(e)) throw e;
+        let stored = null;
+        try {
+          const { rows } = await db("SELECT * FROM app_projects__budget_items WHERE id = ?", [item.id]);
+          stored = rows?.[0] ?? null;
+        } catch (readErr) {
+          // The id is ours: a failed read leaves the outcome unknown, so the
+          // generic line shows, never "already exists".
+          console.error(readErr);
+          throw new Error("line item read-back failed", { cause: e });
+        }
+        if (!stored) throw e;
+        console.error(e);
+        if (storedDiffers(stored, { label, vendor_name: vendor, estimated_cents: estimated, actual_cents: actual, purchased })) {
+          note = SAVED_AS_FIRST;
+        }
+        item = { ...item, ...stored };
+        worth = { estimated_cents: item.estimated_cents, actual_cents: item.actual_cents };
+      }
       budget = mergeSorted(budget, [item], compareBudgetRows);
       updateSummary(project.id, { after: item });
     }
-    closeModal();
+    const afterCents = beforeCents === null
+      ? null
+      : beforeCents - (wasWorth ? committedOf(wasWorth) : 0) + committedOf(worth);
+    const crossed = crossedCap(project.budget_cap_cents, beforeCents, afterCents);
+    if (modalEl === host) closeModal();
     render();
+    if (note) hubAlert(note);
     if (crossed && mayPublish(project)) {
       await publishEvent("project.budget_exceeded", project.id, {
         project_id: project.id, name: project.name,
@@ -1868,6 +1903,7 @@ async function addPhoto(input) {
   if (!project || !file) return;
   input.disabled = true;
   let uploaded = null;
+  let writing = false;
   try {
     // The DB row is only written once the upload has really resolved — a failed
     // upload must not leave an id in file_ids pointing at nothing.
@@ -1875,17 +1911,40 @@ async function addPhoto(input) {
     // when none was kept, and the grid then draws the photo itself.
     const { id: fileId, thumbnailId } = await files.upload(file, { thumbnail: true });
     uploaded = fileId;
-    await rewritePhotoIds(project, ids => [...ids, fileId], "This photo could not be attached.",
-      thumbnailId ? { [fileId]: thumbnailId } : {});
+    writing = true;
+    try {
+      await rewritePhotoIds(project, ids => [...ids, fileId], "This photo could not be attached.",
+        thumbnailId ? { [fileId]: thumbnailId } : {});
+    } catch (e) {
+      if (!outcomeUnknown(e)) throw e;
+      // The answer was lost (no status, a 400, a 5xx other than 507): the
+      // project may have stored the photo, and deleting the file would leave
+      // it naming bytes that are gone. Read the project back: the photo in its
+      // list means the write landed, and the success path below runs once. Not
+      // there, or the read failed: the usual failure line, the file left alone.
+      let fresh = null;
+      try {
+        const { rows } = await db(
+          "SELECT id, file_ids, photo_thumbs, updated_at FROM app_projects__projects WHERE id = ?", [project.id]);
+        fresh = rows?.[0] ?? null;
+      } catch (readErr) { console.error(readErr); }
+      if (!parseFileIds(fresh?.file_ids).includes(fileId)) { uploaded = null; throw e; }
+      console.error(e);
+      project.file_ids = fresh.file_ids;
+      project.photo_thumbs = fresh.photo_thumbs;
+      project.updated_at = fresh.updated_at;
+    }
     uploaded = null;
     render();
   } catch (e) {
-    // The upload landed but the row never named it, so nothing will ever
-    // reclaim it: the file would sit against the household's storage quota
-    // forever. Undo our own half.
+    // A known refusal: the upload landed but the row never named it, so
+    // nothing will ever reclaim it: the file would sit against the household's
+    // storage quota forever. Undo our own half.
     if (uploaded) await files.delete(uploaded).catch(() => {});
     input.disabled = false;
-    writeFailed("add the photo", e, { upload: true });
+    // The upload's own refusals (too large, wrong kind) are said; the row
+    // write's answer is not upload text.
+    writeFailed("add the photo", e, { upload: !writing });
   }
 }
 
