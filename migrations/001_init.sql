@@ -10,7 +10,7 @@
 -- statement in this app compares it. A string CHECK on an encrypted column would
 -- be a dead app: the stored value is ciphertext and never matches a literal.
 CREATE TABLE IF NOT EXISTS app_projects__projects (
-  id               TEXT PRIMARY KEY,
+  id               TEXT NOT NULL PRIMARY KEY,
   name             TEXT NOT NULL,
   description      TEXT NOT NULL DEFAULT '',
   status           TEXT NOT NULL DEFAULT 'planning'
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS app_projects__projects (
 -- Line items. `estimated_cents` is what we thought; `actual_cents` is what it
 -- came to, and stays NULL until it is really known — a 0 would read as free.
 CREATE TABLE IF NOT EXISTS app_projects__budget_items (
-  id              TEXT PRIMARY KEY,
+  id              TEXT NOT NULL PRIMARY KEY,
   project_id      TEXT NOT NULL REFERENCES app_projects__projects(id) ON DELETE CASCADE,
   label           TEXT NOT NULL,
   vendor_name     TEXT NOT NULL DEFAULT '',
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS app_projects__budget_items (
 -- moment rather than a chore ("Demo complete"), so it shares the table and the
 -- date column instead of duplicating both.
 CREATE TABLE IF NOT EXISTS app_projects__checklist_items (
-  id           TEXT PRIMARY KEY,
+  id           TEXT NOT NULL PRIMARY KEY,
   project_id   TEXT NOT NULL REFERENCES app_projects__projects(id) ON DELETE CASCADE,
   title        TEXT NOT NULL,
   due_date     TEXT,                          -- yyyy-mm-dd, household-local
@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS app_projects__checklist_items (
 -- squatting row (writer-scoped). The composite FK makes the pair itself the
 -- thing the database checks, so the mismatch is rejected at write time.
 CREATE TABLE IF NOT EXISTS app_projects__checklist_completions (
-  id         TEXT PRIMARY KEY,
+  id         TEXT NOT NULL PRIMARY KEY,
   -- The FK the row policy inherits from. It must point at `projects` (an
   -- `inherit_visibility` parent has to be an owner-bearing policy), so the
   -- project is denormalized here alongside the item it belongs to.
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS app_projects__checklist_completions (
 -- The decisions log — "we picked the matte tile, model 4471" — which is the
 -- thing a household actually loses between the quote and the install.
 CREATE TABLE IF NOT EXISTS app_projects__notes (
-  id         TEXT PRIMARY KEY,
+  id         TEXT NOT NULL PRIMARY KEY,
   project_id TEXT NOT NULL REFERENCES app_projects__projects(id) ON DELETE CASCADE,
   body       TEXT NOT NULL,
   created_by TEXT NOT NULL,
